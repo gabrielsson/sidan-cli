@@ -1,0 +1,664 @@
+<melker>
+  <title>Sidan</title>
+
+  <policy>
+  {
+    "name": "Sidan",
+    "description": "Terminal client for sidan forum",
+    "permissions": {
+      "net": ["api.chalmerslosers.com", "chalmerslosers.com"],
+      "read": ["/home/max/.config/sidan"],
+      "run": ["sidan-auth"],
+      "clipboard": true,
+      "map": true
+    }
+  }
+  </policy>
+
+  <style>
+    .header { flex-direction: row; padding: 0 1; }
+    .header-title { font-weight: bold; flex: 1; }
+    .toolbar { flex-direction: row; gap: 1; padding: 0 1; }
+    .status-bar { flex-direction: row; padding: 0 1; }
+  </style>
+
+  <!-- Header -->
+  <container class="header">
+    <text class="header-title">SIDAN</text>
+    <text id="user-info">Ej inloggad</text>
+  </container>
+
+  <!-- Main layout -->
+  <split-pane sizes="1,4" style="flex: 1;" dividerTitles="">
+    <!-- Sidebar: Blaskan articles -->
+    <container>
+      <data-table id="articles-table" style="flex: 1;" selectable="single"
+        showHeader="true"
+        onActivate="$app.viewArticle(event.rowIndex)" />
+    </container>
+
+    <!-- Main content -->
+    <tabs id="main-tabs">
+      <!-- Sidan tab (entries) -->
+      <tab title="Sidan" id="tab-sidan">
+        <container class="toolbar">
+          <button onClick="$app.newEntry()">Nytt inlagg</button>
+          <button onClick="$app.loadEntries()">Uppdatera</button>
+          <text id="entry-page-info" style="flex: 1; text-align: right;"></text>
+          <button onClick="$app.prevEntries()">Prev</button>
+          <button onClick="$app.nextEntries()">Nasta</button>
+        </container>
+        <container style="flex: 1; overflow: scroll;">
+          <markdown id="entries-md" enableGfm="true"
+            onLink="$app.handleEntryLink(event.url)" />
+        </container>
+      </tab>
+
+      <!-- Medlemmar tab -->
+      <tab title="Medlemmar" id="tab-members">
+        <container class="toolbar">
+          <button onClick="$app.loadMembers()">Uppdatera</button>
+          <text id="member-count" style="flex: 1; text-align: right;"></text>
+        </container>
+        <data-table id="members-table" style="flex: 1;" selectable="single"
+          onActivate="$app.viewMember(event.rowIndex)" />
+      </tab>
+
+      <!-- Arrangemang tab -->
+      <tab title="Arrangemang" id="tab-events">
+        <container class="toolbar">
+          <button onClick="$app.loadEvents()">Uppdatera</button>
+        </container>
+        <data-table id="events-table" style="flex: 1;" selectable="single"
+          onActivate="$app.viewEvent(event.rowIndex)" />
+      </tab>
+    </tabs>
+  </split-pane>
+
+  <!-- Status bar -->
+  <container class="status-bar">
+    <text id="status" style="flex: 1;">Laddar...</text>
+    <text>Ctrl+R Uppdatera | Ctrl+N Nytt | Ctrl+L Login | Ctrl+Q Avsluta</text>
+  </container>
+
+  <!-- Map dialog for entries with lat/lon -->
+  <dialog id="map-dialog" title="Karta" modal="true" backdrop="true" width="80" height="30">
+    <tile-map id="entry-map" lat="57.7" lon="12.0" zoom="13"
+              provider="openstreetmap" width="100%" height="100%"
+              onOverlay="$app.drawMapMarker(event)" />
+    <container style="flex-direction: row; padding: 0 1; gap: 1;">
+      <text id="map-info" style="flex: 1;"></text>
+      <button onClick="$app.closeDialog('map-dialog')">Stang</button>
+    </container>
+  </dialog>
+
+  <!-- Article detail dialog -->
+  <dialog id="article-dialog" title="Artikel" modal="true" backdrop="true" width="72" height="22">
+    <container style="padding: 1; overflow: scroll; flex: 1;">
+      <markdown id="article-content" enableGfm="true" />
+    </container>
+    <container style="flex-direction: row; padding: 0 1;">
+      <container style="flex: 1;" />
+      <button onClick="$app.closeDialog('article-dialog')">Stang</button>
+    </container>
+  </dialog>
+
+  <!-- Member detail dialog -->
+  <dialog id="member-dialog" title="Medlem" modal="true" backdrop="true" width="55" height="18">
+    <container style="padding: 1; overflow: scroll; flex: 1;">
+      <markdown id="member-detail" enableGfm="true" />
+    </container>
+    <container style="flex-direction: row; padding: 0 1;">
+      <container style="flex: 1;" />
+      <button onClick="$app.closeDialog('member-dialog')">Stang</button>
+    </container>
+  </dialog>
+
+  <!-- Event detail dialog -->
+  <dialog id="event-dialog" title="Arrangemang" modal="true" backdrop="true" width="60" height="16">
+    <container style="padding: 1; overflow: scroll; flex: 1;">
+      <markdown id="event-detail" enableGfm="true" />
+    </container>
+    <container style="flex-direction: row; padding: 0 1;">
+      <container style="flex: 1;" />
+      <button onClick="$app.closeDialog('event-dialog')">Stang</button>
+    </container>
+  </dialog>
+
+  <!-- New entry dialog -->
+  <dialog id="new-entry-dialog" title="Nytt inlagg" modal="true" backdrop="true" width="60" height="20">
+    <container style="padding: 1; gap: 1;">
+      <text>Signatur:</text>
+      <input id="entry-sig" placeholder="Din signatur" />
+      <text>Meddelande:</text>
+      <textarea id="entry-msg" rows="6" placeholder="Skriv ditt inlagg..." persist="false" />
+      <text>Plats:</text>
+      <input id="entry-place" placeholder="Var ar du?" />
+      <container style="flex-direction: row; gap: 1;">
+        <button onClick="$app.submitEntry()">Posta</button>
+        <button onClick="$app.closeDialog('new-entry-dialog')">Avbryt</button>
+      </container>
+    </container>
+  </dialog>
+
+  <!-- Auth dialog -->
+  <dialog id="auth-dialog" title="Autentisering" modal="true" backdrop="true" width="55" height="12">
+    <container style="padding: 1; gap: 1;">
+      <text>For att logga in, kor foljande i en annan terminal:</text>
+      <text style="font-weight: bold;">sidan-auth token add google</text>
+      <text>Tryck sedan "Uppdatera token" nedan.</text>
+      <container style="flex-direction: row; gap: 1;">
+        <button onClick="$app.refreshToken()">Uppdatera token</button>
+        <button onClick="$app.closeDialog('auth-dialog')">Stang</button>
+      </container>
+    </container>
+  </dialog>
+
+  <!-- Global keyboard shortcuts -->
+  <command key="Ctrl+r" label="Refresh" global onExecute="$app.refresh()" />
+  <command key="Ctrl+n" label="New entry" global onExecute="$app.newEntry()" />
+  <command key="Ctrl+q" label="Quit" global onExecute="$melker.exit()" />
+  <command key="Ctrl+l" label="Login" global onExecute="$app.showAuth()" />
+
+  <!-- Main script -->
+  <script type="typescript">
+    const API_BASE = 'https://api.chalmerslosers.com';
+    let token = '';
+    let memberInfo = '';
+
+    let entries: any[] = [];
+    let articles: any[] = [];
+    let members: any[] = [];
+    let events: any[] = [];
+
+    let entrySkip = 0;
+    const entryTake = 20;
+
+    function setStatus(msg: string) {
+      const el = $melker.getElementById('status');
+      if (el) el.setValue(msg);
+    }
+
+    async function runCmd(cmd: string, args: string[]): Promise<string> {
+      try {
+        const cp = await import('node:child_process');
+        return cp.execSync([cmd, ...args].join(' '), { encoding: 'utf-8' });
+      } catch (e) {
+        console.log('runCmd failed:', e);
+        return '';
+      }
+    }
+
+    async function readConfigFile(): Promise<any> {
+      try {
+        // @ts-ignore
+        const home = process.env.HOME || '';
+        const configPath = home + '/.config/sidan/config.json';
+        const fs = await import('node:fs');
+        const data = fs.readFileSync(configPath, 'utf-8');
+        return JSON.parse(data);
+      } catch (e) {
+        console.log('readConfigFile failed:', e);
+        return null;
+      }
+    }
+
+    export async function loadToken() {
+      setStatus('Hamtar token...');
+      const config = await readConfigFile();
+      if (config && config.access_token) {
+        // Check if expired
+        if (config.expires_at) {
+          const expiry = new Date(config.expires_at);
+          if (expiry < new Date()) {
+            setStatus('Token har gatt ut, forsoker fornya...');
+            $melker.render();
+            await runCmd('sidan-auth', ['token', 'refresh']);
+            // Re-read config after refresh
+            const refreshed = await readConfigFile();
+            if (refreshed && refreshed.access_token) {
+              token = refreshed.access_token;
+              memberInfo = `#${refreshed.member_number || '?'}`;
+            } else {
+              token = '';
+              memberInfo = '';
+              setStatus('Token har gatt ut - Ctrl+L for att logga in');
+              const userEl = $melker.getElementById('user-info');
+              if (userEl) userEl.setValue('Ej inloggad');
+              return;
+            }
+          } else {
+            token = config.access_token;
+            memberInfo = `#${config.member_number || '?'}`;
+          }
+        } else {
+          token = config.access_token;
+          memberInfo = `#${config.member_number || '?'}`;
+        }
+        const userEl = $melker.getElementById('user-info');
+        if (userEl) userEl.setValue(`${memberInfo} (${config.email || ''})`);
+        setStatus('Inloggad som ' + memberInfo);
+      } else {
+        setStatus('Ej inloggad - Ctrl+L for att logga in');
+      }
+    }
+
+    async function apiFetch(path: string, options?: RequestInit): Promise<any> {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      try {
+        const resp = await fetch(`${API_BASE}${path}`, {
+          ...options,
+          headers: { ...headers, ...(options?.headers as Record<string, string> || {}) },
+        });
+        if (resp.status === 401) {
+          setStatus('Ej behorig - Ctrl+L for att logga in');
+          return null;
+        }
+        if (!resp.ok) {
+          setStatus(`API-fel: ${resp.status}`);
+          return null;
+        }
+        const text = await resp.text();
+        if (!text) return null;
+        return JSON.parse(text);
+      } catch (e) {
+        setStatus(`Natverksfel: ${e}`);
+        return null;
+      }
+    }
+
+    // --- HTML to markdown conversion ---
+
+    const IMG_BASE = 'https://chalmerslosers.com/';
+
+    function resolveUrl(url: string): string {
+      if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url;
+      return IMG_BASE + url;
+    }
+
+    function htmlToMd(html: string): string {
+      let md = html;
+      // Resolve relative src in <img> tags
+      md = md.replace(/<img\s+([^>]*?)src=["']([^"']*)["']([^>]*?)>/gi, (_m, pre, src, post) => {
+        return `<img ${pre}src="${resolveUrl(src)}"${post}>`;
+      });
+      // Convert <a href="url"><img ...></a> — linked image: show image linking to full-size
+      md = md.replace(/<a\s+href=["']([^"']*)["'][^>]*>\s*(<img\s[^>]+>)\s*<\/a>/gi, (_m, href, img) => {
+        return img + `\n[visa full storlek](${resolveUrl(href)})`;
+      });
+      // Convert remaining <a href="url">text</a> to [text](url)
+      md = md.replace(/<a\s+href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi, (_m, href, text) => {
+        return `[${text}](${resolveUrl(href)})`;
+      });
+      // <br> tags to newlines
+      md = md.replace(/<br\s*\/?>/gi, '\n');
+      // Bold
+      md = md.replace(/<\/?(b|strong)>/gi, '**');
+      // Italic
+      md = md.replace(/<\/?(i|em)>/gi, '*');
+      // Strip remaining non-img HTML tags but keep content
+      md = md.replace(/<(?!\/?img\b)[^>]+>/gi, '');
+      return md;
+    }
+
+    function formatDate(e: any): string {
+      if (e.datetime) {
+        const d = new Date(e.datetime);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+      return (e.date || '').substring(0, 10) + ' ' + (e.time || '');
+    }
+
+    function entriesToMarkdown(data: any[]): string {
+      return data.map((e: any) => {
+        const sig = e.sig || 'Anonym';
+        const date = formatDate(e);
+        const msg = htmlToMd(e.msg || '');
+        const likes = e.likes || 0;
+        const olsug = e.olsug != null && e.olsug !== -1 ? e.olsug : null;
+
+        // Message body first
+        let block = msg;
+
+        // Footer: signature, date, metadata
+        const meta: string[] = [];
+        meta.push(`**${sig}**`);
+        meta.push(date);
+        if (olsug != null) meta.push(`Olsug: ${olsug}`);
+        if (e.enheter) meta.push(`Enh: ${e.enheter}`);
+        if (likes > 0) meta.push(`${likes} gillar`);
+        if (e.place) meta.push(e.place);
+        if (e.lat != null && e.lon != null) {
+          meta.push(`[karta](sidan://map/${e.id})`);
+        }
+        meta.push(`[gilla](sidan://like/${e.id})`);
+
+        block += '\n\n' + meta.join(' | ');
+
+        return block + '\n\n---';
+      }).join('\n\n');
+    }
+
+    export async function loadEntries() {
+      setStatus('Hamtar inlagg...');
+      $melker.render();
+      const data = await apiFetch(`/db/entries?skip=${entrySkip}&take=${entryTake}`);
+      if (data && Array.isArray(data)) {
+        entries = data;
+        const md = $melker.getElementById('entries-md');
+        if (md) {
+          md.props.text = entriesToMarkdown(entries);
+        }
+        const pageInfo = $melker.getElementById('entry-page-info');
+        if (pageInfo) {
+          pageInfo.setValue(`Visar ${entrySkip + 1}-${entrySkip + entries.length}`);
+        }
+        setStatus(`${entries.length} inlagg laddade`);
+      }
+      $melker.render();
+    }
+
+    export async function loadArticles() {
+      const data = await apiFetch('/db/articles?take=20');
+      if (data && Array.isArray(data)) {
+        articles = data;
+        const table = $melker.getElementById('articles-table');
+        if (table) {
+          table.props.columns = [
+            { header: 'Blaskan', width: 'fill', sortable: false },
+          ];
+          const rows = articles.map((a: any) => {
+            const title = a.header || 'Utan rubrik';
+            return [title];
+          });
+          table.setValue(rows);
+        }
+      }
+    }
+
+    export async function loadMembers() {
+      setStatus('Hamtar medlemmar...');
+      $melker.render();
+      const data = await apiFetch('/db/members');
+      if (data && Array.isArray(data)) {
+        members = data;
+        const table = $melker.getElementById('members-table');
+        if (table) {
+          table.props.columns = [
+            { header: '#', width: 5, align: 'right' },
+            { header: 'Namn', width: 20 },
+            { header: 'Titel', width: 'fill' },
+          ];
+          const rows = members.map((m: any) => [
+            m.number ?? '',
+            m.name || '',
+            m.title || '',
+          ]);
+          table.setValue(rows);
+        }
+        const countEl = $melker.getElementById('member-count');
+        if (countEl) countEl.setValue(`${members.length} medlemmar`);
+        setStatus(`${members.length} medlemmar laddade`);
+      }
+      $melker.render();
+    }
+
+    export async function loadEvents() {
+      setStatus('Hamtar arrangemang...');
+      $melker.render();
+      const data = await apiFetch('/db/arr?take=30');
+      if (data && Array.isArray(data)) {
+        events = data;
+        const table = $melker.getElementById('events-table');
+        if (table) {
+          table.props.columns = [
+            { header: 'Namn', width: 'fill' },
+            { header: 'Datum', width: 16 },
+            { header: 'Plats', width: 18 },
+            { header: 'Org', width: 8 },
+          ];
+          const rows = events.map((ev: any) => [
+            ev.namn || '',
+            ev.start_date || '',
+            ev.plats || '',
+            ev.organisator || '',
+          ]);
+          table.setValue(rows);
+        }
+        setStatus(`${events.length} arrangemang laddade`);
+      }
+      $melker.render();
+    }
+
+    // --- Entry link handler ---
+
+    let mapEntryLat = 0;
+    let mapEntryLon = 0;
+
+    export async function handleEntryLink(url: string) {
+      if (url.startsWith('sidan://like/')) {
+        const id = parseInt(url.replace('sidan://like/', ''));
+        if (!token) {
+          $melker.alert('Du maste vara inloggad for att gilla.');
+          return;
+        }
+        if (id) {
+          await apiFetch(`/db/entries/${id}/like`, { method: 'POST' });
+          $melker.toast.show('Gillat!');
+          await loadEntries();
+        }
+      } else if (url.startsWith('sidan://map/')) {
+        const id = parseInt(url.replace('sidan://map/', ''));
+        const entry = entries.find((e: any) => e.id === id);
+        if (entry && entry.lat != null && entry.lon != null) {
+          showEntryMap(entry);
+        }
+      } else {
+        // External URL - open in browser
+        $melker.openBrowser(url);
+      }
+    }
+
+    function showEntryMap(entry: any) {
+      mapEntryLat = entry.lat;
+      mapEntryLon = entry.lon;
+      const map = $melker.getElementById('entry-map');
+      if (map) {
+        map.setView(entry.lat, entry.lon, 14);
+      }
+      const info = $melker.getElementById('map-info');
+      if (info) {
+        info.setValue(`${entry.sig || ''} — ${formatDate(entry)}`);
+      }
+      const dialog = $melker.getElementById('map-dialog');
+      if (dialog) {
+        dialog.props.title = `Karta: ${entry.sig || 'Inlagg'}`;
+        dialog.show();
+      }
+    }
+
+    export function drawMapMarker(event: any) {
+      const { canvas, geo } = event;
+      if (!mapEntryLat && !mapEntryLon) return;
+      const pos = geo.latLonToPixel(mapEntryLat, mapEntryLon);
+      if (!pos) return;
+      canvas.fillCircleCorrectedColor(pos.x, pos.y, 4, 'red');
+      canvas.drawTextColor(pos.x + 8, pos.y, 'Har', '#fff', { align: 'left' });
+    }
+
+    export function viewArticle(rowIndex: number) {
+      if (rowIndex < 0 || rowIndex >= articles.length) return;
+      const a = articles[rowIndex];
+
+      const content = $melker.getElementById('article-content');
+      if (content) {
+        const md = [
+          `## ${a.header || 'Utan rubrik'}`,
+          '',
+          a.date ? `*${a.date}*` : '',
+          '',
+          '---',
+          '',
+          a.body || '',
+        ].join('\n');
+        content.props.text = md;
+      }
+
+      const dialog = $melker.getElementById('article-dialog');
+      if (dialog) {
+        dialog.props.title = a.header || 'Artikel';
+        dialog.show();
+      }
+    }
+
+    export function viewMember(rowIndex: number) {
+      if (rowIndex < 0 || rowIndex >= members.length) return;
+      const m = members[rowIndex];
+
+      const detail = $melker.getElementById('member-detail');
+      if (detail) {
+        const lines = [
+          `## Medlem #${m.number}`,
+          '',
+          m.name ? `**Namn:** ${m.name}` : '',
+          m.title ? `**Titel:** ${m.title}` : '',
+          m.email ? `**E-post:** ${m.email}` : '',
+          m.phone ? `**Telefon:** ${m.phone}` : '',
+          m.address ? `**Adress:** ${m.address}` : '',
+          m.im ? `**IM:** ${m.im}` : '',
+          m.history ? `\n---\n\n**Historik:**\n${m.history}` : '',
+        ].filter(Boolean).join('\n');
+        detail.props.text = lines;
+      }
+
+      const dialog = $melker.getElementById('member-dialog');
+      if (dialog) {
+        dialog.props.title = `Medlem #${m.number} - ${m.name || ''}`;
+        dialog.show();
+      }
+    }
+
+    export function viewEvent(rowIndex: number) {
+      if (rowIndex < 0 || rowIndex >= events.length) return;
+      const ev = events[rowIndex];
+
+      const detail = $melker.getElementById('event-detail');
+      if (detail) {
+        const lines = [
+          `## ${ev.namn || 'Namnlost arrangemang'}`,
+          '',
+          ev.start_date ? `**Datum:** ${ev.start_date}` : '',
+          ev.plats ? `**Plats:** ${ev.plats}` : '',
+          ev.organisator ? `**Organisator:** ${ev.organisator}` : '',
+          ev.deltagare ? `**Deltagare:** ${ev.deltagare}` : '',
+          ev.kanske ? `**Kanske:** ${ev.kanske}` : '',
+        ].filter(Boolean).join('\n');
+        detail.props.text = lines;
+      }
+
+      const dialog = $melker.getElementById('event-dialog');
+      if (dialog) {
+        dialog.props.title = ev.namn || 'Arrangemang';
+        dialog.show();
+      }
+    }
+
+    // --- Dialog actions ---
+
+    export function closeDialog(id: string) {
+      $melker.getElementById(id)?.hide();
+    }
+
+    export function newEntry() {
+      if (!token) {
+        $melker.alert('Du maste vara inloggad. Tryck Ctrl+L.');
+        return;
+      }
+      $melker.getElementById('new-entry-dialog')?.show();
+    }
+
+    export async function submitEntry() {
+      const sig = $melker.getElementById('entry-sig')?.getValue() || '';
+      const msg = $melker.getElementById('entry-msg')?.getValue() || '';
+      const place = $melker.getElementById('entry-place')?.getValue() || '';
+
+      if (!sig || !msg) {
+        $melker.alert('Signatur och meddelande kravs.');
+        return;
+      }
+
+      setStatus('Skickar inlagg...');
+      $melker.render();
+
+      const result = await apiFetch('/db/entries', {
+        method: 'POST',
+        body: JSON.stringify({ sig, msg, place }),
+      });
+
+      if (result) {
+        closeDialog('new-entry-dialog');
+        $melker.getElementById('entry-msg')?.setValue('');
+        $melker.toast.show('Inlagg skickat!');
+        entrySkip = 0;
+        await loadEntries();
+      }
+    }
+
+    // --- Pagination ---
+
+    export function nextEntries() {
+      entrySkip += entryTake;
+      loadEntries();
+    }
+
+    export function prevEntries() {
+      entrySkip = Math.max(0, entrySkip - entryTake);
+      loadEntries();
+    }
+
+    // --- Auth ---
+
+    export function showAuth() {
+      $melker.getElementById('auth-dialog')?.show();
+    }
+
+    export async function refreshToken() {
+      setStatus('Uppdaterar token...');
+      $melker.render();
+      await loadToken();
+      closeDialog('auth-dialog');
+      $melker.toast.show('Token uppdaterad!');
+      await refresh();
+    }
+
+    // --- Refresh all ---
+
+    export async function refresh() {
+      setStatus('Laddar all data...');
+      $melker.render();
+      await Promise.all([
+        loadEntries(),
+        loadArticles(),
+        loadMembers(),
+        loadEvents(),
+      ]);
+      setStatus('Klar');
+      $melker.render();
+    }
+  </script>
+
+  <!-- Init: load token before first render -->
+  <script type="typescript" async="init">
+    await $app.loadToken();
+  </script>
+
+  <script type="typescript" async="ready">
+    await $app.refresh();
+  </script>
+</melker>
