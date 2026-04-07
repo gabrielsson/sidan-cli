@@ -7,9 +7,11 @@
     "description": "Terminal client for sidan forum",
     "permissions": {
       "net": ["api.chalmerslosers.com", "chalmerslosers.com"],
-      "read": ["/home/max/.config/sidan"],
-      "run": ["sidan-auth"],
+      "read": ["~/.config/sidan"],
+      "run": ["sidan-auth", "open", "xdg-open"],
+      "env": ["*"],
       "clipboard": true,
+      "browser": true,
       "map": true
     }
   }
@@ -29,51 +31,48 @@
   </container>
 
   <!-- Main layout -->
-  <split-pane sizes="1,4" style="flex: 1;" dividerTitles="">
-    <!-- Sidebar: Blaskan articles -->
-    <container>
+  <tabs id="main-tabs" style="flex: 1;">
+    <!-- Sidan tab (entries) -->
+    <tab title="Sidan" id="tab-sidan">
+      <container class="toolbar">
+        <button onClick="$app.newEntry()">Nytt inlagg</button>
+        <button onClick="$app.loadEntries()">Uppdatera</button>
+        <text id="entry-page-info" style="flex: 1; text-align: right;"></text>
+        <button onClick="$app.prevEntries()">Prev</button>
+        <button onClick="$app.nextEntries()">Nasta</button>
+      </container>
+      <container style="flex: 1; overflow: scroll;">
+        <markdown id="entries-md" enableGfm="true"
+          onLink="$app.handleEntryLink(event.url)" />
+      </container>
+    </tab>
+
+    <!-- Medlemmar tab -->
+    <tab title="Medlemmar" id="tab-members">
+      <container class="toolbar">
+        <button onClick="$app.loadMembers()">Uppdatera</button>
+        <text id="member-count" style="flex: 1; text-align: right;"></text>
+      </container>
+      <data-table id="members-table" style="flex: 1;" selectable="single"
+        onActivate="$app.viewMember(event.rowIndex)" />
+    </tab>
+
+    <!-- Arrangemang tab -->
+    <tab title="Arrangemang" id="tab-events">
+      <container class="toolbar">
+        <button onClick="$app.loadEvents()">Uppdatera</button>
+      </container>
+      <data-table id="events-table" style="flex: 1;" selectable="single"
+        onActivate="$app.viewEvent(event.rowIndex)" />
+    </tab>
+
+    <!-- Blaskan tab -->
+    <tab title="Blaskan" id="tab-blaskan">
       <data-table id="articles-table" style="flex: 1;" selectable="single"
         showHeader="true"
         onActivate="$app.viewArticle(event.rowIndex)" />
-    </container>
-
-    <!-- Main content -->
-    <tabs id="main-tabs">
-      <!-- Sidan tab (entries) -->
-      <tab title="Sidan" id="tab-sidan">
-        <container class="toolbar">
-          <button onClick="$app.newEntry()">Nytt inlagg</button>
-          <button onClick="$app.loadEntries()">Uppdatera</button>
-          <text id="entry-page-info" style="flex: 1; text-align: right;"></text>
-          <button onClick="$app.prevEntries()">Prev</button>
-          <button onClick="$app.nextEntries()">Nasta</button>
-        </container>
-        <container style="flex: 1; overflow: scroll;">
-          <markdown id="entries-md" enableGfm="true"
-            onLink="$app.handleEntryLink(event.url)" />
-        </container>
-      </tab>
-
-      <!-- Medlemmar tab -->
-      <tab title="Medlemmar" id="tab-members">
-        <container class="toolbar">
-          <button onClick="$app.loadMembers()">Uppdatera</button>
-          <text id="member-count" style="flex: 1; text-align: right;"></text>
-        </container>
-        <data-table id="members-table" style="flex: 1;" selectable="single"
-          onActivate="$app.viewMember(event.rowIndex)" />
-      </tab>
-
-      <!-- Arrangemang tab -->
-      <tab title="Arrangemang" id="tab-events">
-        <container class="toolbar">
-          <button onClick="$app.loadEvents()">Uppdatera</button>
-        </container>
-        <data-table id="events-table" style="flex: 1;" selectable="single"
-          onActivate="$app.viewEvent(event.rowIndex)" />
-      </tab>
-    </tabs>
-  </split-pane>
+    </tab>
+  </tabs>
 
   <!-- Status bar -->
   <container class="status-bar">
@@ -142,15 +141,16 @@
   </dialog>
 
   <!-- Auth dialog -->
-  <dialog id="auth-dialog" title="Autentisering" modal="true" backdrop="true" width="55" height="12">
-    <container style="padding: 1; gap: 1;">
-      <text>For att logga in, kor foljande i en annan terminal:</text>
-      <text style="font-weight: bold;">sidan-auth token add google</text>
-      <text>Tryck sedan "Uppdatera token" nedan.</text>
-      <container style="flex-direction: row; gap: 1;">
-        <button onClick="$app.refreshToken()">Uppdatera token</button>
-        <button onClick="$app.closeDialog('auth-dialog')">Stang</button>
-      </container>
+  <dialog id="auth-dialog" title="Autentisering" modal="true" backdrop="true" width="60" height="14">
+    <container style="padding: 1; gap: 1; flex: 1;">
+      <text id="auth-status">Tryck pa knappen nedan for att logga in med Google.</text>
+      <text id="auth-output" style="font-weight: bold;"></text>
+      <text id="auth-code-label"></text>
+      <text id="auth-code" style="font-weight: bold;"></text>
+    </container>
+    <container style="flex-direction: row; gap: 1; padding: 0 1 1 1;">
+      <button id="auth-login-btn" label="Logga in med Google" onClick="$app.startGoogleLogin()" />
+      <button label="Stang" onClick="$app.closeDialog('auth-dialog')" />
     </container>
   </dialog>
 
@@ -172,7 +172,7 @@
     let events: any[] = [];
 
     let entrySkip = 0;
-    const entryTake = 20;
+    const entryTake = 100;
 
     function setStatus(msg: string) {
       const el = $melker.getElementById('status');
@@ -205,40 +205,30 @@
 
     export async function loadToken() {
       setStatus('Hamtar token...');
-      const config = await readConfigFile();
+      let config = await readConfigFile();
+
+      // If no token or expired, try to refresh
+      const shouldRefresh = !config || !config.access_token ||
+        (config.expires_at && new Date(config.expires_at) < new Date());
+
+      if (shouldRefresh) {
+        setStatus('Uppdaterar token...');
+        $melker.render();
+        await runCmd('sidan-auth', ['token', 'refresh']);
+        config = await readConfigFile();
+      }
+
       if (config && config.access_token) {
-        // Check if expired
-        if (config.expires_at) {
-          const expiry = new Date(config.expires_at);
-          if (expiry < new Date()) {
-            setStatus('Token har gatt ut, forsoker fornya...');
-            $melker.render();
-            await runCmd('sidan-auth', ['token', 'refresh']);
-            // Re-read config after refresh
-            const refreshed = await readConfigFile();
-            if (refreshed && refreshed.access_token) {
-              token = refreshed.access_token;
-              memberInfo = `#${refreshed.member_number || '?'}`;
-            } else {
-              token = '';
-              memberInfo = '';
-              setStatus('Token har gatt ut - Ctrl+L for att logga in');
-              const userEl = $melker.getElementById('user-info');
-              if (userEl) userEl.setValue('Ej inloggad');
-              return;
-            }
-          } else {
-            token = config.access_token;
-            memberInfo = `#${config.member_number || '?'}`;
-          }
-        } else {
-          token = config.access_token;
-          memberInfo = `#${config.member_number || '?'}`;
-        }
+        token = config.access_token;
+        memberInfo = `#${config.member_number || '?'}`;
         const userEl = $melker.getElementById('user-info');
         if (userEl) userEl.setValue(`${memberInfo} (${config.email || ''})`);
         setStatus('Inloggad som ' + memberInfo);
       } else {
+        token = '';
+        memberInfo = '';
+        const userEl = $melker.getElementById('user-info');
+        if (userEl) userEl.setValue('Ej inloggad');
         setStatus('Ej inloggad - Ctrl+L for att logga in');
       }
     }
@@ -277,8 +267,9 @@
     const IMG_BASE = 'https://chalmerslosers.com/';
 
     function resolveUrl(url: string): string {
-      if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url;
-      return IMG_BASE + url;
+      const full = /^https?:\/\//i.test(url) || url.startsWith('data:') ? url : IMG_BASE + url;
+      // Encode spaces and other unsafe characters in the path portion, leave the rest intact
+      return full.replace(/ /g, '%20');
     }
 
     function htmlToMd(html: string): string {
@@ -287,9 +278,10 @@
       md = md.replace(/<img\s+([^>]*?)src=["']([^"']*)["']([^>]*?)>/gi, (_m, pre, src, post) => {
         return `<img ${pre}src="${resolveUrl(src)}"${post}>`;
       });
-      // Convert <a href="url"><img ...></a> — linked image: show image linking to full-size
+      // Convert <a href="url"><img ...></a> — linked image: show image then link
       md = md.replace(/<a\s+href=["']([^"']*)["'][^>]*>\s*(<img\s[^>]+>)\s*<\/a>/gi, (_m, href, img) => {
-        return img + `\n[visa full storlek](${resolveUrl(href)})`;
+        const resolved = resolveUrl(href);
+        return img + `\n[visa full storlek](${resolved})`;
       });
       // Convert remaining <a href="url">text</a> to [text](url)
       md = md.replace(/<a\s+href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi, (_m, href, text) => {
@@ -303,7 +295,11 @@
       md = md.replace(/<\/?(i|em)>/gi, '*');
       // Strip remaining non-img HTML tags but keep content
       md = md.replace(/<(?!\/?img\b)[^>]+>/gi, '');
-      return md;
+      // Ensure <img> tags are on their own line so text renders below them
+      md = md.replace(/(<img\s[^>]+>)/gi, '\n\n$1\n\n');
+      // Collapse excessive blank lines
+      md = md.replace(/\n{3,}/g, '\n\n');
+      return md.trim();
     }
 
     function formatDate(e: any): string {
@@ -323,15 +319,21 @@
         const likes = e.likes || 0;
         const olsug = e.olsug != null && e.olsug !== -1 ? e.olsug : null;
 
+        // Beer emojis at top if enheter is set
+        const beers = e.enheter && e.enheter > 0 ? '\uD83C\uDF7A'.repeat(e.enheter) + '\n\n' : '';
+
         // Message body first
-        let block = msg;
+        let block = beers + msg;
 
         // Footer: signature, date, metadata
         const meta: string[] = [];
         meta.push(`**${sig}**`);
         meta.push(date);
         if (olsug != null) meta.push(`Olsug: ${olsug}`);
-        if (e.enheter) meta.push(`Enh: ${e.enheter}`);
+        if (e.sidekicks && e.sidekicks.length > 0) {
+          const sigs = e.sidekicks.map((sk: any) => `#${sk.number}`);
+          meta.push(`Med: ${sigs.join(', ')}`);
+        }
         if (likes > 0) meta.push(`${likes} gillar`);
         if (e.place) meta.push(e.place);
         if (e.lat != null && e.lon != null) {
@@ -365,7 +367,7 @@
     }
 
     export async function loadArticles() {
-      const data = await apiFetch('/db/articles?take=20');
+      const data = await apiFetch('/db/articles?take=200');
       if (data && Array.isArray(data)) {
         articles = data;
         const table = $melker.getElementById('articles-table');
@@ -460,8 +462,9 @@
           showEntryMap(entry);
         }
       } else {
-        // External URL - open in browser
-        $melker.openBrowser(url);
+        // External URL - open in browser using Deno.Command so spaces in URLs are safe
+        const cmd = Deno.build.os === 'darwin' ? 'open' : 'xdg-open';
+        await new Deno.Command(cmd, { args: [url] }).output();
       }
     }
 
@@ -580,6 +583,8 @@
         $melker.alert('Du maste vara inloggad. Tryck Ctrl+L.');
         return;
       }
+      const sigEl = $melker.getElementById('entry-sig');
+      if (sigEl && memberInfo) sigEl.setValue(memberInfo);
       $melker.getElementById('new-entry-dialog')?.show();
     }
 
@@ -625,7 +630,95 @@
     // --- Auth ---
 
     export function showAuth() {
+      const statusEl = $melker.getElementById('auth-status');
+      const outputEl = $melker.getElementById('auth-output');
+      const codeLabelEl = $melker.getElementById('auth-code-label');
+      const codeEl = $melker.getElementById('auth-code');
+      const btnEl = $melker.getElementById('auth-login-btn');
+      if (statusEl) statusEl.setValue('Tryck pa knappen nedan for att logga in med Google.');
+      if (outputEl) outputEl.setValue('');
+      if (codeLabelEl) codeLabelEl.setValue('');
+      if (codeEl) codeEl.setValue('');
+      if (btnEl) btnEl.props.disabled = false;
       $melker.getElementById('auth-dialog')?.show();
+    }
+
+    export async function startGoogleLogin() {
+      const statusEl = $melker.getElementById('auth-status');
+      const outputEl = $melker.getElementById('auth-output');
+      const codeLabelEl = $melker.getElementById('auth-code-label');
+      const codeEl = $melker.getElementById('auth-code');
+      const btnEl = $melker.getElementById('auth-login-btn');
+
+      if (statusEl) statusEl.setValue('Startar inloggning...');
+      if (outputEl) outputEl.setValue('');
+      if (codeLabelEl) codeLabelEl.setValue('');
+      if (codeEl) codeEl.setValue('');
+      if (btnEl) btnEl.props.disabled = true;
+      $melker.render();
+
+      try {
+        // @ts-ignore
+        const { spawn } = await import('node:child_process');
+        await new Promise<void>((resolve) => {
+          const proc = spawn('sidan-auth', ['token', 'add', 'google'], {
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+
+          const handleOutput = (chunk: Buffer) => {
+            const text = chunk.toString();
+            const urlMatch = text.match(/https?:\/\/\S+/);
+            // Look for a code line after the browser-open prompt, e.g. "Enter code: XXXX" or just a short code
+            const codeMatch = text.match(/(?:code[:\s]+)([A-Za-z0-9_\-]{4,})/i) ||
+                              text.match(/^\s*([A-Za-z0-9_\-]{6,})\s*$/m);
+            if (urlMatch) {
+              const url = urlMatch[0];
+              if (statusEl) statusEl.setValue('Klistra in denna URL i webblasaren:');
+              if (outputEl) outputEl.setValue(url);
+              $melker.copyToClipboard(url);
+            } else if (codeMatch) {
+              const code = codeMatch[1];
+              if (statusEl) statusEl.setValue('Ange denna kod i webblesaren:');
+              if (codeLabelEl) codeLabelEl.setValue('Kod:');
+              if (codeEl) codeEl.setValue(code);
+              $melker.copyToClipboard(code);
+            } else if (text.trim()) {
+              if (statusEl) statusEl.setValue(text.trim().substring(0, 80));
+            }
+            $melker.render();
+          };
+
+          proc.stdout.on('data', handleOutput);
+          proc.stderr.on('data', handleOutput);
+
+          proc.on('close', async (code: number) => {
+            if (code === 0) {
+              if (statusEl) statusEl.setValue('Inloggning klar! Hamtar token...');
+              $melker.render();
+              await loadToken();
+              closeDialog('auth-dialog');
+              $melker.toast.show('Inloggad!');
+              await refresh();
+            } else {
+              if (statusEl) statusEl.setValue(`Inloggning misslyckades (kod ${code}). Forsok igen.`);
+              if (btnEl) btnEl.props.disabled = false;
+              $melker.render();
+            }
+            resolve();
+          });
+
+          proc.on('error', (err: Error) => {
+            if (statusEl) statusEl.setValue(`Fel: ${err.message}`);
+            if (btnEl) btnEl.props.disabled = false;
+            $melker.render();
+            resolve();
+          });
+        });
+      } catch (e) {
+        if (statusEl) statusEl.setValue(`Fel: ${e}`);
+        if (btnEl) btnEl.props.disabled = false;
+        $melker.render();
+      }
     }
 
     export async function refreshToken() {
@@ -655,10 +748,11 @@
 
   <!-- Init: load token before first render -->
   <script type="typescript" async="init">
-    await $app.loadToken();
+    // Prefetch token if needed, but UI updates happen in ready
   </script>
 
   <script type="typescript" async="ready">
+    await $app.loadToken();
     await $app.refresh();
   </script>
 </melker>
