@@ -1,4 +1,12 @@
-# Quick Install
+# Sidan CLI
+
+A Terminal UI client for the [Sidan forum](https://chalmerslosers.com), built with [Melker](https://melker.sh/) — a framework for building terminal UIs.
+
+## Developing
+
+The app is a `.melker` file. To work on it, install [Melker](https://melker.sh/) and use the [Melker AI agent skill](https://melker.sh/) available for any LLM coding assistant to help with development.
+
+## Quick Install
 
 Install [Go](https://go.dev/dl/) and [Deno](https://deno.com), then:
 
