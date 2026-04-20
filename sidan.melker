@@ -330,11 +330,9 @@
         let block = beers + msg;
 
         // Footer: signature, date, metadata
-        const grey = (s: string) => `<span style="color:grey">${s}</span>`;
-        const pipe = grey(' | ');
         const meta: string[] = [];
         meta.push(`**${sig}**`);
-        meta.push(grey(date));
+        meta.push(date);
         if (olsug != null) meta.push(`Olsug: ${olsug}`);
         if (e.sidekicks && e.sidekicks.length > 0) {
           const sigs = e.sidekicks.map((sk: any) => `#${sk.number}`);
@@ -347,7 +345,7 @@
         }
         meta.push(`[gilla](sidan://like/${e.id})`);
 
-        block += '\n\n' + meta.join(pipe);
+        block += '\n\n' + meta.join(' | ');
 
         return block + '\n\n---';
       }).join('\n\n');
