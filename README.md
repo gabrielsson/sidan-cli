@@ -7,7 +7,7 @@ Install [Go](https://go.dev/dl/) and [Deno](https://deno.com), then:
 go install github.com/sebastiw/sidan-backend/cmd/sidan-auth@latest
 deno install -g -A jsr:@melker/melker
 echo 'export PATH=$PATH:~/go/bin' >> ~/.bashrc
-echo 'alias sidan="melker https://gist.githubusercontent.com/gabrielsson/b62b710b3f3bb952118c8f0e0b80b955/raw/sidan.melker"' >> ~/.bashrc
+echo 'alias sidan="melker https://raw.githubusercontent.com/gabrielsson/sidan-cli/main/sidan.melker"' >> ~/.bashrc
 source ~/.bashrc && sidan
 ```
 
@@ -16,6 +16,6 @@ source ~/.bashrc && sidan
 go install github.com/sebastiw/sidan-backend/cmd/sidan-auth@latest
 deno install -g -A jsr:@melker/melker
 Add-Content $PROFILE "`n`$env:PATH += `";`$env:USERPROFILE\go\bin`""
-Add-Content $PROFILE "`nfunction sidan { melker https://gist.githubusercontent.com/gabrielsson/b62b710b3f3bb952118c8f0e0b80b955/raw/sidan.melker }"
+Add-Content $PROFILE "`nfunction sidan { melker https://raw.githubusercontent.com/gabrielsson/sidan-cli/main/sidan.melker }"
 . $PROFILE; sidan
 ```
