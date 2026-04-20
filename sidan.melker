@@ -330,24 +330,29 @@
         let block = beers + msg;
 
         // Footer: signature, date, metadata
+        // visibleLen counts only rendered characters (no markdown syntax)
+        let visibleLen = 0;
+        const addMeta = (item: string, visible: string = item) => { meta.push(item); visibleLen += visible.length; };
+
         const meta: string[] = [];
-        meta.push(`**${sig}**`);
-        meta.push(date);
-        if (olsug != null) meta.push(`Olsug: ${olsug}`);
+        addMeta(`**${sig}**`, sig);
+        addMeta(date);
+        if (olsug != null) addMeta(`Olsug: ${olsug}`);
         if (e.sidekicks && e.sidekicks.length > 0) {
           const sigs = e.sidekicks.map((sk: any) => `#${sk.number}`);
-          meta.push(`Med: ${sigs.join(', ')}`);
+          addMeta(`Med: ${sigs.join(', ')}`);
         }
-        if (likes > 0) meta.push(`${likes} gillar`);
-        if (e.place) meta.push(e.place);
-        if (e.lat != null && e.lon != null) {
-          meta.push(`[karta](sidan://map/${e.id})`);
-        }
-        meta.push(`[gilla](sidan://like/${e.id})`);
+        if (likes > 0) addMeta(`${likes} gillar`);
+        if (e.place) addMeta(e.place);
+        if (e.lat != null && e.lon != null) addMeta(`[karta](sidan://map/${e.id})`, 'karta');
+        addMeta(`[gilla](sidan://like/${e.id})`, 'gilla');
+
+        // Add separators (' | ') between items to the visible length
+        visibleLen += (meta.length - 1) * ' | '.length;
 
         block += '\n\n' + meta.join(' | ');
 
-        return block + '\n\n---';
+        return block + '\n\n' + '─'.repeat(visibleLen);
       }).join('\n\n');
     }
 
