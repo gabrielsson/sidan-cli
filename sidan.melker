@@ -41,7 +41,7 @@
         <button onClick="$app.prevEntries()">Prev</button>
         <button onClick="$app.nextEntries()">Nasta</button>
       </container>
-      <container style="flex: 1; overflow: scroll;">
+      <container id="entries-scroll" style="flex: 1; overflow: scroll;">
         <markdown id="entries-md" enableGfm="true"
           onLink="$app.handleEntryLink(event.url)" />
       </container>
@@ -161,6 +161,8 @@
   <command key="Ctrl+n" label="New entry" global onExecute="$app.newEntry()" />
   <command key="Ctrl+q" label="Quit" global onExecute="$melker.exit()" />
   <command key="Ctrl+l" label="Login" global onExecute="$app.showAuth()" />
+  <command key="PageUp" global onExecute="$app.handlePage(-1)" />
+  <command key="PageDown" global onExecute="$app.handlePage(1)" />
 
   <!-- Main script -->
   <script type="typescript">
@@ -699,6 +701,27 @@
     }
 
     // --- Pagination ---
+
+    export function handlePage(direction: number) {
+      const activeIndex = $melker.getElementById('main-tabs')?.getActiveIndex?.() ?? 0;
+      if (activeIndex === 0) {
+        const scroll = $melker.getElementById('entries-scroll');
+        if (scroll) {
+          scroll.props.scrollY = Math.max(0, (scroll.props.scrollY || 0) + direction * 20);
+          $melker.render();
+        }
+      } else {
+        const tableId = activeIndex === 1 ? 'members-table'
+                      : activeIndex === 2 ? 'events-table'
+                      : activeIndex === 3 ? 'articles-table'
+                      : null;
+        if (tableId) {
+          $melker.focus?.(tableId);
+          $melker.getElementById(tableId)?.onKeyPress?.({ key: direction < 0 ? 'PageUp' : 'PageDown' });
+          $melker.render();
+        }
+      }
+    }
 
     export function nextEntries() {
       entrySkip += entryTake;
