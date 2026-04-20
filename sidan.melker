@@ -35,11 +35,11 @@
     <!-- Sidan tab (entries) -->
     <tab title="Sidan" id="tab-sidan">
       <container class="toolbar">
-        <button onClick="$app.newEntry()">Nytt inlagg</button>
+        <button onClick="$app.newEntry()">Nytt inlägg</button>
         <button onClick="$app.loadEntries()">Uppdatera</button>
         <text id="entry-page-info" style="flex: 1; text-align: right;"></text>
         <button onClick="$app.prevEntries()">Prev</button>
-        <button onClick="$app.nextEntries()">Nasta</button>
+        <button onClick="$app.nextEntries()">Nästa</button>
       </container>
       <container style="flex: 1; overflow: scroll;">
         <markdown id="entries-md" enableGfm="true"
@@ -87,7 +87,7 @@
               onOverlay="$app.drawMapMarker(event)" />
     <container style="flex-direction: row; padding: 0 1; gap: 1;">
       <text id="map-info" style="flex: 1;"></text>
-      <button onClick="$app.closeDialog('map-dialog')">Stang</button>
+      <button onClick="$app.closeDialog('map-dialog')">Stäng</button>
     </container>
   </dialog>
 
@@ -98,7 +98,7 @@
     </container>
     <container style="flex-direction: row; padding: 0 1;">
       <container style="flex: 1;" />
-      <button onClick="$app.closeDialog('article-dialog')">Stang</button>
+      <button onClick="$app.closeDialog('article-dialog')">Stäng</button>
     </container>
   </dialog>
 
@@ -109,7 +109,7 @@
     </container>
     <container style="flex-direction: row; padding: 0 1;">
       <container style="flex: 1;" />
-      <button onClick="$app.closeDialog('member-dialog')">Stang</button>
+      <button onClick="$app.closeDialog('member-dialog')">Stäng</button>
     </container>
   </dialog>
 
@@ -120,21 +120,20 @@
     </container>
     <container style="flex-direction: row; padding: 0 1; gap: 1;">
       <text id="event-register-status" style="flex: 1;"></text>
-      <button onClick="$app.registerForEvent()">Anmal mig</button>
+      <button onClick="$app.registerForEvent()">Anmäl mig</button>
       <button onClick="$app.unregisterForEvent()">Jag bangar</button>
-      <button onClick="$app.closeDialog('event-dialog')">Stang</button>
-    </container>
+      <button onClick="$app.closeDialog('event-dialog')">Stäng</button>
   </dialog>
 
   <!-- New entry dialog -->
-  <dialog id="new-entry-dialog" title="Nytt inlagg" modal="true" backdrop="true" width="60" height="20">
+  <dialog id="new-entry-dialog" title="Nytt inlägg" modal="true" backdrop="true" width="60" height="20">
     <container style="padding: 1; gap: 1;">
       <text>Signatur:</text>
       <input id="entry-sig" placeholder="Din signatur" />
       <text>Meddelande:</text>
-      <textarea id="entry-msg" rows="6" placeholder="Skriv ditt inlagg..." persist="false" />
+      <textarea id="entry-msg" rows="6" placeholder="Skriv ditt inlägg..." persist="false" />
       <text>Plats:</text>
-      <input id="entry-place" placeholder="Var ar du?" />
+      <input id="entry-place" placeholder="Var är du?" />
       <container style="flex-direction: row; gap: 1;">
         <button onClick="$app.submitEntry()">Posta</button>
         <button onClick="$app.closeDialog('new-entry-dialog')">Avbryt</button>
@@ -145,14 +144,14 @@
   <!-- Auth dialog -->
   <dialog id="auth-dialog" title="Autentisering" modal="true" backdrop="true" width="60" height="14">
     <container style="padding: 1; gap: 1; flex: 1;">
-      <text id="auth-status">Tryck pa knappen nedan for att logga in med Google.</text>
+      <text id="auth-status">Tryck på knappen nedan för att logga in med Google.</text>
       <text id="auth-output" style="font-weight: bold;"></text>
       <text id="auth-code-label"></text>
       <text id="auth-code" style="font-weight: bold;"></text>
     </container>
     <container style="flex-direction: row; gap: 1; padding: 0 1 1 1;">
       <button id="auth-login-btn" label="Logga in med Google" onClick="$app.startGoogleLogin()" />
-      <button label="Stang" onClick="$app.closeDialog('auth-dialog')" />
+      <button label="Stäng" onClick="$app.closeDialog('auth-dialog')" />
     </container>
   </dialog>
 
@@ -207,7 +206,7 @@
     }
 
     export async function loadToken() {
-      setStatus('Hamtar token...');
+      setStatus('Hämtar token...');
       let config = await readConfigFile();
 
       // If no token or expired, try to refresh
@@ -232,7 +231,7 @@
         memberInfo = '';
         const userEl = $melker.getElementById('user-info');
         if (userEl) userEl.setValue('Ej inloggad');
-        setStatus('Ej inloggad - Ctrl+L for att logga in');
+        setStatus('Ej inloggad - Ctrl+L för att logga in');
       }
     }
 
@@ -249,7 +248,7 @@
           headers: { ...headers, ...(options?.headers as Record<string, string> || {}) },
         });
         if (resp.status === 401) {
-          setStatus('Ej behorig - Ctrl+L for att logga in');
+          setStatus('Ej behörig - Ctrl+L för att logga in');
           return null;
         }
         if (!resp.ok) {
@@ -260,7 +259,7 @@
         if (!text) return null;
         return JSON.parse(text);
       } catch (e) {
-        setStatus(`Natverksfel: ${e}`);
+        setStatus(`Nätverksfel: ${e}`);
         return null;
       }
     }
@@ -351,7 +350,7 @@
     }
 
     export async function loadEntries() {
-      setStatus('Hamtar inlagg...');
+      setStatus('Hämtar inlägg...');
       $melker.render();
       const data = await apiFetch(`/db/entries?skip=${entrySkip}&take=${entryTake}`);
       if (data && Array.isArray(data)) {
@@ -364,7 +363,7 @@
         if (pageInfo) {
           pageInfo.setValue(`Visar ${entrySkip + 1}-${entrySkip + entries.length}`);
         }
-        setStatus(`${entries.length} inlagg laddade`);
+        setStatus(`${entries.length} inlägg laddade`);
       }
       $melker.render();
     }
@@ -388,7 +387,7 @@
     }
 
     export async function loadMembers() {
-      setStatus('Hamtar medlemmar...');
+      setStatus('Hämtar medlemmar...');
       $melker.render();
       const data = await apiFetch('/db/members');
       if (data && Array.isArray(data)) {
@@ -415,7 +414,7 @@
     }
 
     export async function loadEvents() {
-      setStatus('Hamtar arrangemang...');
+      setStatus('Hämtar arrangemang...');
       $melker.render();
       const data = await apiFetch('/db/arr?take=30');
       if (data && Array.isArray(data)) {
@@ -452,7 +451,7 @@
       if (url.startsWith('sidan://like/')) {
         const id = parseInt(url.replace('sidan://like/', ''));
         if (!token) {
-          $melker.alert('Du maste vara inloggad for att gilla.');
+          $melker.alert('Du måste vara inloggad för att gilla.');
           return;
         }
         if (id) {
@@ -486,7 +485,7 @@
       }
       const dialog = $melker.getElementById('map-dialog');
       if (dialog) {
-        dialog.props.title = `Karta: ${entry.sig || 'Inlagg'}`;
+        dialog.props.title = `Karta: ${entry.sig || 'Inlägg'}`;
         dialog.show();
       }
     }
@@ -497,7 +496,7 @@
       const pos = geo.latLonToPixel(mapEntryLat, mapEntryLon);
       if (!pos) return;
       canvas.fillCircleCorrectedColor(pos.x, pos.y, 4, 'red');
-      canvas.drawTextColor(pos.x + 8, pos.y, 'Har', '#fff', { align: 'left' });
+      canvas.drawTextColor(pos.x + 8, pos.y, 'Här', '#fff', { align: 'left' });
     }
 
     export function viewArticle(rowIndex: number) {
@@ -562,7 +561,7 @@
       const detail = $melker.getElementById('event-detail');
       if (detail) {
         const lines = [
-          `## ${ev.namn || 'Namnlost arrangemang'}`,
+          `## ${ev.namn || 'Namnlöst arrangemang'}`,
           '',
           ev.start_date ? `**Datum:** ${ev.start_date}` : '',
           ev.plats ? `**Plats:** ${ev.plats}` : '',
@@ -663,7 +662,7 @@
 
     export function newEntry() {
       if (!token) {
-        $melker.alert('Du maste vara inloggad. Tryck Ctrl+L.');
+        $melker.alert('Du måste vara inloggad. Tryck Ctrl+L.');
         return;
       }
       const sigEl = $melker.getElementById('entry-sig');
@@ -677,11 +676,11 @@
       const place = $melker.getElementById('entry-place')?.getValue() || '';
 
       if (!sig || !msg) {
-        $melker.alert('Signatur och meddelande kravs.');
+        $melker.alert('Signatur och meddelande krävs.');
         return;
       }
 
-      setStatus('Skickar inlagg...');
+      setStatus('Skickar inlägg...');
       $melker.render();
 
       const result = await apiFetch('/db/entries', {
@@ -692,7 +691,7 @@
       if (result) {
         closeDialog('new-entry-dialog');
         $melker.getElementById('entry-msg')?.setValue('');
-        $melker.toast.show('Inlagg skickat!');
+        $melker.toast.show('Inlägg skickat!');
         entrySkip = 0;
         await loadEntries();
       }
@@ -718,7 +717,7 @@
       const codeLabelEl = $melker.getElementById('auth-code-label');
       const codeEl = $melker.getElementById('auth-code');
       const btnEl = $melker.getElementById('auth-login-btn');
-      if (statusEl) statusEl.setValue('Tryck pa knappen nedan for att logga in med Google.');
+      if (statusEl) statusEl.setValue('Tryck på knappen nedan för att logga in med Google.');
       if (outputEl) outputEl.setValue('');
       if (codeLabelEl) codeLabelEl.setValue('');
       if (codeEl) codeEl.setValue('');
@@ -756,12 +755,12 @@
                               text.match(/^\s*([A-Za-z0-9_\-]{6,})\s*$/m);
             if (urlMatch) {
               const url = urlMatch[0];
-              if (statusEl) statusEl.setValue('Klistra in denna URL i webblasaren:');
+              if (statusEl) statusEl.setValue('Klistra in denna URL i webbläsaren:');
               if (outputEl) outputEl.setValue(url);
               $melker.copyToClipboard(url);
             } else if (codeMatch) {
               const code = codeMatch[1];
-              if (statusEl) statusEl.setValue('Ange denna kod i webblesaren:');
+              if (statusEl) statusEl.setValue('Ange denna kod i webbläsaren:');
               if (codeLabelEl) codeLabelEl.setValue('Kod:');
               if (codeEl) codeEl.setValue(code);
               $melker.copyToClipboard(code);
@@ -776,14 +775,14 @@
 
           proc.on('close', async (code: number) => {
             if (code === 0) {
-              if (statusEl) statusEl.setValue('Inloggning klar! Hamtar token...');
+              if (statusEl) statusEl.setValue('Inloggning klar! Hämtar token...');
               $melker.render();
               await loadToken();
               closeDialog('auth-dialog');
               $melker.toast.show('Inloggad!');
               await refresh();
             } else {
-              if (statusEl) statusEl.setValue(`Inloggning misslyckades (kod ${code}). Forsok igen.`);
+              if (statusEl) statusEl.setValue(`Inloggning misslyckades (kod ${code}). Försök igen.`);
               if (btnEl) btnEl.props.disabled = false;
               $melker.render();
             }
