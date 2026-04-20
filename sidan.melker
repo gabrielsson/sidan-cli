@@ -570,7 +570,7 @@
           ev.organisator ? `**Organisator:** ${ev.organisator}` : '',
           ev.deltagare ? `**Deltagare:** ${ev.deltagare}` : '',
           ev.kanske ? `**Kanske:** ${ev.kanske}` : '',
-        ].filter(Boolean).join('\n');
+        ].filter(Boolean).join('\n\n');
         detail.props.text = lines;
       }
 
