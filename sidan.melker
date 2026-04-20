@@ -345,7 +345,7 @@
         }
         meta.push(`[gilla](sidan://like/${e.id})`);
 
-        block += '\n' + meta.join(pipe);
+        block += '\n\n' + meta.join(pipe);
 
         return block + '\n\n---';
       }).join('\n\n');
