@@ -57,8 +57,8 @@
         onActivate="$app.viewMember(event.rowIndex)" />
     </tab>
 
-    <!-- Arrangemang tab -->
-    <tab title="Arrangemang" id="tab-events">
+    <!-- Arrsidan tab -->
+    <tab title="Arrsidan" id="tab-events">
       <container class="toolbar">
         <button onClick="$app.loadEvents()">Uppdatera</button>
       </container>
@@ -114,12 +114,14 @@
   </dialog>
 
   <!-- Event detail dialog -->
-  <dialog id="event-dialog" title="Arrangemang" modal="true" backdrop="true" width="60" height="16">
+  <dialog id="event-dialog" title="Arrangemang" modal="true" backdrop="true" width="60" height="18">
     <container style="padding: 1; overflow: scroll; flex: 1;">
       <markdown id="event-detail" enableGfm="true" />
     </container>
-    <container style="flex-direction: row; padding: 0 1;">
-      <container style="flex: 1;" />
+    <container style="flex-direction: row; padding: 0 1; gap: 1;">
+      <text id="event-register-status" style="flex: 1;"></text>
+      <button onClick="$app.registerForEvent()">Anmal mig</button>
+      <button onClick="$app.unregisterForEvent()">Jag bangar</button>
       <button onClick="$app.closeDialog('event-dialog')">Stang</button>
     </container>
   </dialog>
@@ -170,6 +172,7 @@
     let articles: any[] = [];
     let members: any[] = [];
     let events: any[] = [];
+    let currentEventIndex = -1;
 
     let entrySkip = 0;
     const entryTake = 100;
@@ -424,12 +427,14 @@
             { header: 'Datum', width: 16 },
             { header: 'Plats', width: 18 },
             { header: 'Org', width: 8 },
+            { header: 'Deltagare', width: 20 },
           ];
           const rows = events.map((ev: any) => [
             ev.namn || '',
             ev.start_date || '',
             ev.plats || '',
             ev.organisator || '',
+            ev.deltagare || '',
           ]);
           table.setValue(rows);
         }
@@ -549,7 +554,10 @@
 
     export function viewEvent(rowIndex: number) {
       if (rowIndex < 0 || rowIndex >= events.length) return;
+      currentEventIndex = rowIndex;
       const ev = events[rowIndex];
+      const statusEl = $melker.getElementById('event-register-status');
+      if (statusEl) statusEl.setValue('');
 
       const detail = $melker.getElementById('event-detail');
       if (detail) {
@@ -569,6 +577,81 @@
       if (dialog) {
         dialog.props.title = ev.namn || 'Arrangemang';
         dialog.show();
+      }
+    }
+
+    export async function registerForEvent() {
+      if (currentEventIndex < 0 || currentEventIndex >= events.length) return;
+      const ev = events[currentEventIndex];
+      const statusEl = $melker.getElementById('event-register-status');
+
+      if (!token) {
+        if (statusEl) statusEl.setValue('Logga in forst (Ctrl+L)');
+        return;
+      }
+
+      const sig = memberInfo;
+      const current = ev.deltagare || '';
+      const already = current.split(',').map((s: string) => s.trim()).filter(Boolean).some((s: string) => s === sig);
+      if (already) {
+        if (statusEl) statusEl.setValue('Du ar redan anmald!');
+        return;
+      }
+
+      const updated = current ? `${current}, ${sig}` : sig;
+      if (statusEl) statusEl.setValue('Anmaler...');
+      $melker.render();
+
+      const result = await apiFetch(`/db/arr/${ev.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...ev, deltagare: updated }),
+      });
+
+      if (result) {
+        events[currentEventIndex] = result;
+        if (statusEl) statusEl.setValue('Anmald!');
+        // Refresh the detail view
+        viewEvent(currentEventIndex);
+        await loadEvents();
+      } else {
+        if (statusEl) statusEl.setValue('Fel vid anmalan');
+      }
+    }
+
+    export async function unregisterForEvent() {
+      if (currentEventIndex < 0 || currentEventIndex >= events.length) return;
+      const ev = events[currentEventIndex];
+      const statusEl = $melker.getElementById('event-register-status');
+
+      if (!token) {
+        if (statusEl) statusEl.setValue('Logga in forst (Ctrl+L)');
+        return;
+      }
+
+      const sig = memberInfo;
+      const current = ev.deltagare || '';
+      const parts = current.split(',').map((s: string) => s.trim()).filter(Boolean);
+      if (!parts.includes(sig)) {
+        if (statusEl) statusEl.setValue('Du ar inte anmald');
+        return;
+      }
+
+      const updated = parts.filter((s: string) => s !== sig).join(', ');
+      if (statusEl) statusEl.setValue('Bangar...');
+      $melker.render();
+
+      const result = await apiFetch(`/db/arr/${ev.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...ev, deltagare: updated }),
+      });
+
+      if (result) {
+        events[currentEventIndex] = result;
+        if (statusEl) statusEl.setValue('Bangat!');
+        viewEvent(currentEventIndex);
+        await loadEvents();
+      } else {
+        if (statusEl) statusEl.setValue('Fel vid bangning');
       }
     }
 
