@@ -143,7 +143,6 @@
   <!-- Auth dialog -->
   <dialog id="auth-dialog" title="Autentisering" modal="true" backdrop="true" width="60" height="14">
     <container style="padding: 1; gap: 1; flex: 1;">
-      <text id="auth-status">Tryck på knappen nedan för att logga in med Google.</text>
       <text id="auth-output" style="font-weight: bold;"></text>
       <text id="auth-code-label"></text>
       <text id="auth-code" style="font-weight: bold;"></text>
@@ -738,12 +737,10 @@
     // --- Auth ---
 
     export function showAuth() {
-      const statusEl = $melker.getElementById('auth-status');
       const outputEl = $melker.getElementById('auth-output');
       const codeLabelEl = $melker.getElementById('auth-code-label');
       const codeEl = $melker.getElementById('auth-code');
       const btnEl = $melker.getElementById('auth-login-btn');
-      if (statusEl) statusEl.setValue('Tryck på knappen nedan för att logga in med Google.');
       if (outputEl) outputEl.setValue('');
       if (codeLabelEl) codeLabelEl.setValue('');
       if (codeEl) codeEl.setValue('');
@@ -752,14 +749,12 @@
     }
 
     export async function startGoogleLogin() {
-      const statusEl = $melker.getElementById('auth-status');
       const outputEl = $melker.getElementById('auth-output');
       const codeLabelEl = $melker.getElementById('auth-code-label');
       const codeEl = $melker.getElementById('auth-code');
       const btnEl = $melker.getElementById('auth-login-btn');
 
-      if (statusEl) statusEl.setValue('Startar inloggning...');
-      if (outputEl) outputEl.setValue('');
+      if (outputEl) outputEl.setValue('Startar inloggning...');
       if (codeLabelEl) codeLabelEl.setValue('');
       if (codeEl) codeEl.setValue('');
       if (btnEl) btnEl.props.disabled = true;
@@ -781,15 +776,15 @@
                               text.match(/^\s*([A-Za-z0-9_\-]{6,})\s*$/m);
             if (urlMatch) {
               const url = urlMatch[0];
-              if (statusEl) statusEl.setValue('Klistra in denna URL i webbläsaren:');
-              if (outputEl) outputEl.setValue(url);
+              if (outputEl) outputEl.setValue('Klistra in denna URL i webbläsaren:');
+              if (codeLabelEl) codeLabelEl.setValue(url);
             } else if (codeMatch) {
               const code = codeMatch[1];
-              if (statusEl) statusEl.setValue('Ange denna kod i webbläsaren: (kopierad till urklipp)');
-              if (codeLabelEl) codeLabelEl.setValue('Kod:');
+              if (outputEl) outputEl.setValue('Ange denna kod i webbläsaren:');
+              if (codeLabelEl) codeLabelEl.setValue('Kod: (kopierad till urklipp)');
               if (codeEl) codeEl.setValue(code);
             } else if (text.trim()) {
-              if (statusEl) statusEl.setValue(text.trim().substring(0, 80));
+              if (outputEl) outputEl.setValue(text.trim().substring(0, 80));
             }
             $melker.render();
           };
@@ -799,14 +794,13 @@
 
           proc.on('close', async (code: number) => {
             if (code === 0) {
-              if (statusEl) statusEl.setValue('Inloggning klar! Hämtar token...');
               $melker.render();
               await loadToken();
               closeDialog('auth-dialog');
               $melker.toast.show('Inloggad!');
               await refresh();
             } else {
-              if (statusEl) statusEl.setValue(`Inloggning misslyckades (kod ${code}). Försök igen.`);
+              if (outputEl) outputEl.setValue(`Inloggning misslyckades (kod ${code}). Försök igen.`);
               if (btnEl) btnEl.props.disabled = false;
               $melker.render();
             }
@@ -814,14 +808,14 @@
           });
 
           proc.on('error', (err: Error) => {
-            if (statusEl) statusEl.setValue(`Fel: ${err.message}`);
+            if (outputEl) outputEl.setValue(`Fel: ${err.message}`);
             if (btnEl) btnEl.props.disabled = false;
             $melker.render();
             resolve();
           });
         });
       } catch (e) {
-        if (statusEl) statusEl.setValue(`Fel: ${e}`);
+        if (outputEl) outputEl.setValue(`Fel: ${e}`);
         if (btnEl) btnEl.props.disabled = false;
         $melker.render();
       }
