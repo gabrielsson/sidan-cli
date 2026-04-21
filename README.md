@@ -1,6 +1,6 @@
 # Sidan CLI
 
-A Terminal UI client for the [Sidan forum](https://chalmerslosers.com), built with [Melker](https://melker.sh/) — a framework for building terminal UIs.
+A Terminal UI client for sidan, built with [Melker](https://melker.sh/) — a framework for building terminal UIs.
 
 ## Developing
 
