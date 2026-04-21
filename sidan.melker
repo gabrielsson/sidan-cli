@@ -10,8 +10,7 @@
       "read": ["~/.config/sidan"],
       "run": ["sidan-auth", "open", "xdg-open"],
       "env": ["*"],
-      "clipboard": true,
-      "browser": true,
+"browser": true,
       "map": true
     }
   }
@@ -193,47 +192,46 @@
       }
     }
 
-    async function readConfigFile(): Promise<any> {
-      try {
-        // @ts-ignore
-        const home = process.env.HOME || '';
-        const configPath = home + '/.config/sidan/config.json';
-        const fs = await import('node:fs');
-        const data = fs.readFileSync(configPath, 'utf-8');
-        return JSON.parse(data);
-      } catch (e) {
-        console.log('readConfigFile failed:', e);
-        return null;
-      }
-    }
-
     export async function loadToken() {
       setStatus('Hämtar token...');
-      let config = await readConfigFile();
+      $melker.render();
 
-      // If no token or expired, try to refresh
-      const shouldRefresh = !config || !config.access_token ||
-        (config.expires_at && new Date(config.expires_at) < new Date());
+      // Try sidan-auth token raw (requires sidan-auth >= new version)
+      let rawToken = (await runCmd('sidan-auth', ['token', 'raw'])).trim();
 
-      if (shouldRefresh) {
+      if (!rawToken) {
+        // Possibly expired — try refresh first, then raw again
         setStatus('Uppdaterar token...');
         $melker.render();
         await runCmd('sidan-auth', ['token', 'refresh']);
-        config = await readConfigFile();
+        rawToken = (await runCmd('sidan-auth', ['token', 'raw'])).trim();
       }
 
-      if (config && config.access_token) {
-        token = config.access_token;
-        memberInfo = `#${config.member_number || '?'}`;
-        const userEl = $melker.getElementById('user-info');
-        if (userEl) userEl.setValue(`${memberInfo} (${config.email || ''})`);
-        setStatus('Inloggad som ' + memberInfo);
+      if (rawToken) {
+        token = rawToken;
+        // Decode member info from JWT payload (no verification needed, just display)
+        try {
+          const payload = JSON.parse(atob(rawToken.split('.')[1]));
+          memberInfo = payload.number ? `#${payload.number}` : '';
+          const userEl = $melker.getElementById('user-info');
+          if (userEl) userEl.setValue(`${memberInfo}${payload.email ? ` (${payload.email})` : ''}`);
+        } catch {
+          const userEl = $melker.getElementById('user-info');
+          if (userEl) userEl.setValue('Inloggad');
+        }
+        setStatus('Inloggad' + (memberInfo ? ` som ${memberInfo}` : ''));
       } else {
         token = '';
         memberInfo = '';
         const userEl = $melker.getElementById('user-info');
         if (userEl) userEl.setValue('Ej inloggad');
-        setStatus('Ej inloggad - Ctrl+L för att logga in');
+        // Check if sidan-auth token raw is unsupported (old version)
+        const helpOutput = (await runCmd('sidan-auth', ['token', '--help'])).toLowerCase();
+        if (!helpOutput.includes('raw')) {
+          setStatus('sidan-auth är för gammal — kör: go install github.com/sebastiw/sidan-backend/cmd/sidan-auth@latest');
+        } else {
+          setStatus('Ej inloggad - Ctrl+L för att logga in');
+        }
       }
     }
 
@@ -785,13 +783,11 @@
               const url = urlMatch[0];
               if (statusEl) statusEl.setValue('Klistra in denna URL i webbläsaren:');
               if (outputEl) outputEl.setValue(url);
-              $melker.copyToClipboard(url);
             } else if (codeMatch) {
               const code = codeMatch[1];
-              if (statusEl) statusEl.setValue('Ange denna kod i webbläsaren:');
+              if (statusEl) statusEl.setValue('Ange denna kod i webbläsaren: (kopierad till urklipp)');
               if (codeLabelEl) codeLabelEl.setValue('Kod:');
               if (codeEl) codeEl.setValue(code);
-              $melker.copyToClipboard(code);
             } else if (text.trim()) {
               if (statusEl) statusEl.setValue(text.trim().substring(0, 80));
             }
