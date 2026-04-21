@@ -80,7 +80,7 @@
   </container>
 
   <!-- Map dialog for entries with lat/lon -->
-  <dialog id="map-dialog" title="Karta" modal="true" backdrop="true" width="80" height="30">
+  <dialog id="map-dialog" title="Karta" modal="true" backdrop="true" style="width: 80; height: 30;">
     <tile-map id="entry-map" lat="57.7" lon="12.0" zoom="13"
               provider="openstreetmap" width="100%" height="100%"
               onOverlay="$app.drawMapMarker(event)" />
@@ -91,7 +91,7 @@
   </dialog>
 
   <!-- Article detail dialog -->
-  <dialog id="article-dialog" title="Artikel" modal="true" backdrop="true" width="72" height="22">
+  <dialog id="article-dialog" title="Artikel" modal="true" backdrop="true" style="width: 72; height: 22;">
     <container style="padding: 1; overflow: scroll; flex: 1;">
       <markdown id="article-content" enableGfm="true" />
     </container>
@@ -102,7 +102,7 @@
   </dialog>
 
   <!-- Member detail dialog -->
-  <dialog id="member-dialog" title="Medlem" modal="true" backdrop="true" width="55" height="18">
+  <dialog id="member-dialog" title="Medlem" modal="true" backdrop="true" style="width: 55; height: 18;">
     <container style="padding: 1; overflow: scroll; flex: 1;">
       <markdown id="member-detail" enableGfm="true" />
     </container>
@@ -113,7 +113,7 @@
   </dialog>
 
   <!-- Event detail dialog -->
-  <dialog id="event-dialog" title="Arrangemang" modal="true" backdrop="true" width="60" height="18">
+  <dialog id="event-dialog" title="Arrangemang" modal="true" backdrop="true" style="width: 60; height: 18;">
     <container style="padding: 1; overflow: scroll; flex: 1;">
       <markdown id="event-detail" enableGfm="true" />
     </container>
@@ -122,10 +122,11 @@
       <button onClick="$app.registerForEvent()">Anmäl mig</button>
       <button onClick="$app.unregisterForEvent()">Jag bangar</button>
       <button onClick="$app.closeDialog('event-dialog')">Stäng</button>
+    </container>
   </dialog>
 
   <!-- New entry dialog -->
-  <dialog id="new-entry-dialog" title="Nytt inlägg" modal="true" backdrop="true" width="60" height="20">
+  <dialog id="new-entry-dialog" title="Nytt inlägg" modal="true" backdrop="true" style="width: 60; height: 20;">
     <container style="padding: 1; gap: 1;">
       <text>Signatur:</text>
       <input id="entry-sig" placeholder="Din signatur" />
@@ -141,7 +142,7 @@
   </dialog>
 
   <!-- Auth dialog -->
-  <dialog id="auth-dialog" title="Autentisering" modal="true" backdrop="true" width="60" height="14">
+  <dialog id="auth-dialog" title="Autentisering" modal="true" backdrop="true" style="width: 60; height: 14;">
     <container style="padding: 1; gap: 1; flex: 1;">
       <text id="auth-output" style="font-weight: bold;"></text>
       <text id="auth-code-label"></text>
@@ -166,6 +167,7 @@
     const API_BASE = 'https://api.chalmerslosers.com';
     let token = '';
     let memberInfo = '';
+    let needsUpdate = false;
 
     let entries: any[] = [];
     let articles: any[] = [];
@@ -183,8 +185,11 @@
 
     async function runCmd(cmd: string, args: string[]): Promise<string> {
       try {
-        const cp = await import('node:child_process');
-        return cp.execSync([cmd, ...args].join(' '), { encoding: 'utf-8' });
+        const result = await new Deno.Command(cmd, { args, stdout: 'piped', stderr: 'piped' }).output();
+        if (result.success) {
+          return new TextDecoder().decode(result.stdout);
+        }
+        return '';
       } catch (e) {
         console.log('runCmd failed:', e);
         return '';
@@ -211,7 +216,8 @@
         // Decode member info from JWT payload (no verification needed, just display)
         try {
           const payload = JSON.parse(atob(rawToken.split('.')[1]));
-          memberInfo = payload.number ? `#${payload.number}` : '';
+          const num = payload.member_number ?? payload.number;
+          memberInfo = num ? `#${num}` : '';
           const userEl = $melker.getElementById('user-info');
           if (userEl) userEl.setValue(`${memberInfo}${payload.email ? ` (${payload.email})` : ''}`);
         } catch {
@@ -223,13 +229,24 @@
         token = '';
         memberInfo = '';
         const userEl = $melker.getElementById('user-info');
-        if (userEl) userEl.setValue('Ej inloggad');
-        // Check if sidan-auth token raw is unsupported (old version)
-        const helpOutput = (await runCmd('sidan-auth', ['token', '--help'])).toLowerCase();
-        if (!helpOutput.includes('raw')) {
-          setStatus('sidan-auth är för gammal — kör: go install github.com/sebastiw/sidan-backend/cmd/sidan-auth@latest');
-        } else {
-          setStatus('Ej inloggad - Ctrl+L för att logga in');
+        const updateCmd = 'go install github.com/sebastiw/sidan-backend/cmd/sidan-auth@latest';
+        // Check if sidan-auth supports token raw (help exits non-zero, so use Deno.Command to capture stdout regardless)
+        try {
+          const result = await new Deno.Command('sidan-auth', { args: ['--help'], stdout: 'piped', stderr: 'piped' }).output();
+          const helpText = new TextDecoder().decode(result.stdout).toLowerCase()
+                         + new TextDecoder().decode(result.stderr).toLowerCase();
+          if (!helpText.includes('raw')) {
+            needsUpdate = true;
+            if (userEl) userEl.setValue(`Kör: ${updateCmd}`);
+            setStatus(`sidan-auth är för gammal — kör: ${updateCmd}`);
+          } else {
+            if (userEl) userEl.setValue('Ej inloggad');
+            setStatus('Ej inloggad - Ctrl+L för att logga in');
+          }
+        } catch {
+          needsUpdate = true;
+          if (userEl) userEl.setValue(`Kör: ${updateCmd}`);
+          setStatus(`Installera sidan-auth: ${updateCmd}`);
         }
       }
     }
@@ -821,15 +838,6 @@
       }
     }
 
-    export async function refreshToken() {
-      setStatus('Uppdaterar token...');
-      $melker.render();
-      await loadToken();
-      closeDialog('auth-dialog');
-      $melker.toast.show('Token uppdaterad!');
-      await refresh();
-    }
-
     // --- Refresh all ---
 
     export async function refresh() {
@@ -841,14 +849,9 @@
         loadMembers(),
         loadEvents(),
       ]);
-      setStatus('Klar');
+      setStatus(needsUpdate ? 'Uppdatera sidan-auth för full funktionalitet' : 'Klar');
       $melker.render();
     }
-  </script>
-
-  <!-- Init: load token before first render -->
-  <script type="typescript" async="init">
-    // Prefetch token if needed, but UI updates happen in ready
   </script>
 
   <script type="typescript" async="ready">
