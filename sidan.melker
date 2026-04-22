@@ -290,6 +290,19 @@
       return full.replace(/ /g, '%20');
     }
 
+    function stripHtml(html: string): string {
+      return html
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
     function htmlToMd(html: string): string {
       let md = html;
       // Resolve relative src in <img> tags
@@ -450,7 +463,7 @@
             { header: 'Deltagare', width: 20 },
           ];
           const rows = events.map((ev: any) => [
-            ev.namn || '',
+            stripHtml(ev.namn || ''),
             ev.start_date || '',
             ev.plats || '',
             ev.organisator || '',
@@ -595,7 +608,7 @@
 
       const dialog = $melker.getElementById('event-dialog');
       if (dialog) {
-        dialog.props.title = ev.namn || 'Arrangemang';
+        dialog.props.title = stripHtml(ev.namn || 'Arrangemang');
         dialog.show();
       }
     }
