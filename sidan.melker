@@ -486,10 +486,10 @@
         if (table) {
           table.props.columns = [
             { header: 'Namn', width: 'fill' },
-            { header: 'Datum', width: 16 },
+            { header: 'Datum', width: 17 },
             { header: 'Plats', width: 18 },
             { header: 'Org', width: 8 },
-            { header: 'Deltagare', width: 20 },
+            { header: 'Deltagare', width: 'fill' },
           ];
           const rows = events.map((ev: any) => [
             stripHtml(ev.namn || ''),
