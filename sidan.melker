@@ -34,7 +34,7 @@
     <!-- Sidan tab (entries) -->
     <tab title="Sidan" id="tab-sidan">
       <container class="toolbar">
-        <button onClick="$app.newEntry()">Nytt inlägg</button>
+        <button id="new-entry-btn" onClick="$app.newEntry()" style="display: none;">Nytt inlägg</button>
         <button onClick="$app.loadEntries()">Uppdatera</button>
         <text id="entry-page-info" style="flex: 1; text-align: right;"></text>
         <button onClick="$app.prevEntries()">Prev</button>
@@ -204,6 +204,11 @@
       if (el) el.setValue(msg);
     }
 
+    function updateNewEntryButton() {
+      const btn = $melker.getElementById('new-entry-btn');
+      if (btn) btn.props.style.display = token ? 'flex' : 'none';
+    }
+
     async function runCmd(cmd: string, args: string[]): Promise<string> {
       try {
         const result = await new Deno.Command(cmd, { args, stdout: 'piped', stderr: 'piped' }).output();
@@ -233,8 +238,18 @@
       }
 
       if (rawToken) {
-        token = rawToken;
         // Decode member info from JWT payload (no verification needed, just display)
+        try {
+          const payload = JSON.parse(atob(rawToken.split('.')[1]));
+          // Check if token is expired
+          if (payload.exp && payload.exp * 1000 < Date.now()) {
+            rawToken = '';
+          }
+        } catch {}
+      }
+
+      if (rawToken) {
+        token = rawToken;
         try {
           const payload = JSON.parse(atob(rawToken.split('.')[1]));
           const num = payload.member_number ?? payload.number;
@@ -245,10 +260,12 @@
           const userEl = $melker.getElementById('user-info');
           if (userEl) userEl.setValue('Inloggad');
         }
+        updateNewEntryButton();
         setStatus('Inloggad' + (memberInfo ? ` som ${memberInfo}` : ''));
       } else {
         token = '';
         memberInfo = '';
+        updateNewEntryButton();
         const userEl = $melker.getElementById('user-info');
         const updateCmd = 'go install github.com/sebastiw/sidan-backend/cmd/sidan-auth@latest';
         // Check if sidan-auth supports token raw (help exits non-zero, so use Deno.Command to capture stdout regardless)
