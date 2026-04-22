@@ -97,6 +97,7 @@
       <text id="map-info" style="flex: 1;"></text>
       <button onClick="$app.closeDialog('map-dialog')">Stäng</button>
     </container>
+    <command key="Escape" label="Stäng" onExecute="$app.closeDialog('map-dialog')" />
   </dialog>
 
   <!-- Article detail dialog -->
@@ -108,6 +109,7 @@
       <container style="flex: 1;" />
       <button onClick="$app.closeDialog('article-dialog')">Stäng</button>
     </container>
+    <command key="Escape" label="Stäng" onExecute="$app.closeDialog('article-dialog')" />
   </dialog>
 
   <!-- Member detail dialog -->
@@ -119,6 +121,7 @@
       <container style="flex: 1;" />
       <button onClick="$app.closeDialog('member-dialog')">Stäng</button>
     </container>
+    <command key="Escape" label="Stäng" onExecute="$app.closeDialog('member-dialog')" />
   </dialog>
 
   <!-- Event detail dialog -->
@@ -132,6 +135,7 @@
       <button onClick="$app.unregisterForEvent()">Jag bangar</button>
       <button onClick="$app.closeDialog('event-dialog')">Stäng</button>
     </container>
+    <command key="Escape" label="Stäng" onExecute="$app.closeDialog('event-dialog')" />
   </dialog>
 
   <!-- New entry dialog -->
@@ -148,6 +152,7 @@
         <button onClick="$app.closeDialog('new-entry-dialog')">Avbryt</button>
       </container>
     </container>
+    <command key="Escape" label="Avbryt" onExecute="$app.closeDialog('new-entry-dialog')" />
   </dialog>
 
   <!-- Auth dialog -->
@@ -161,6 +166,7 @@
       <button id="auth-login-btn" label="Logga in med Google" onClick="$app.startGoogleLogin()" />
       <button label="Stäng" onClick="$app.closeDialog('auth-dialog')" />
     </container>
+    <command key="Escape" label="Stäng" onExecute="$app.closeDialog('auth-dialog')" />
   </dialog>
 
   <!-- Global keyboard shortcuts -->
