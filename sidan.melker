@@ -607,7 +607,7 @@
           m.address ? `**Adress:** ${m.address}` : '',
           m.im ? `**IM:** ${m.im}` : '',
           m.history ? `\n---\n\n**Historik:**\n${m.history}` : '',
-        ].filter(Boolean).join('\n');
+        ].filter(Boolean).join('\n\n');
         detail.props.text = lines;
       }
 
