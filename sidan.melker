@@ -60,6 +60,9 @@
     <tab title="Arrsidan" id="tab-events">
       <container class="toolbar">
         <button onClick="$app.loadEvents()">Uppdatera</button>
+        <text id="event-page-info" style="flex: 1; text-align: right;"></text>
+        <button onClick="$app.prevEvents()">Prev</button>
+        <button onClick="$app.nextEvents()">Nästa</button>
       </container>
       <data-table id="events-table" style="flex: 1;" selectable="single"
         onActivate="$app.viewEvent(event.rowIndex)" />
@@ -67,6 +70,12 @@
 
     <!-- Blaskan tab -->
     <tab title="Blaskan" id="tab-blaskan">
+      <container class="toolbar">
+        <button onClick="$app.loadArticles()">Uppdatera</button>
+        <text id="article-page-info" style="flex: 1; text-align: right;"></text>
+        <button onClick="$app.prevArticles()">Prev</button>
+        <button onClick="$app.nextArticles()">Nästa</button>
+      </container>
       <data-table id="articles-table" style="flex: 1;" selectable="single"
         showHeader="true"
         onActivate="$app.viewArticle(event.rowIndex)" />
@@ -177,6 +186,12 @@
 
     let entrySkip = 0;
     const entryTake = 100;
+
+    let eventSkip = 0;
+    const eventTake = 30;
+
+    let articleSkip = 0;
+    const articleTake = 30;
 
     function setStatus(msg: string) {
       const el = $melker.getElementById('status');
@@ -403,7 +418,9 @@
     }
 
     export async function loadArticles() {
-      const data = await apiFetch('/db/articles?take=200');
+      setStatus('Hämtar Blaskan...');
+      $melker.render();
+      const data = await apiFetch(`/db/articles?skip=${articleSkip}&take=${articleTake}`);
       if (data && Array.isArray(data)) {
         articles = data;
         const table = $melker.getElementById('articles-table');
@@ -417,7 +434,13 @@
           });
           table.setValue(rows);
         }
+        const pageInfo = $melker.getElementById('article-page-info');
+        if (pageInfo) {
+          pageInfo.setValue(`Visar ${articleSkip + 1}-${articleSkip + articles.length}`);
+        }
+        setStatus(`${articles.length} artiklar laddade`);
       }
+      $melker.render();
     }
 
     export async function loadMembers() {
@@ -450,7 +473,7 @@
     export async function loadEvents() {
       setStatus('Hämtar arrangemang...');
       $melker.render();
-      const data = await apiFetch('/db/arr?take=30');
+      const data = await apiFetch(`/db/arr?skip=${eventSkip}&take=${eventTake}`);
       if (data && Array.isArray(data)) {
         events = data;
         const table = $melker.getElementById('events-table');
@@ -470,6 +493,10 @@
             ev.deltagare || '',
           ]);
           table.setValue(rows);
+        }
+        const pageInfo = $melker.getElementById('event-page-info');
+        if (pageInfo) {
+          pageInfo.setValue(`Visar ${eventSkip + 1}-${eventSkip + events.length}`);
         }
         setStatus(`${events.length} arrangemang laddade`);
       }
@@ -762,6 +789,26 @@
     export function prevEntries() {
       entrySkip = Math.max(0, entrySkip - entryTake);
       loadEntries();
+    }
+
+    export function nextEvents() {
+      eventSkip += eventTake;
+      loadEvents();
+    }
+
+    export function prevEvents() {
+      eventSkip = Math.max(0, eventSkip - eventTake);
+      loadEvents();
+    }
+
+    export function nextArticles() {
+      articleSkip += articleTake;
+      loadArticles();
+    }
+
+    export function prevArticles() {
+      articleSkip = Math.max(0, articleSkip - articleTake);
+      loadArticles();
     }
 
     // --- Auth ---
