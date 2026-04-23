@@ -139,7 +139,7 @@
   </dialog>
 
   <!-- New entry dialog -->
-  <dialog id="new-entry-dialog" title="Nytt inlägg" modal="true" backdrop="true" style="width: 60; height: 20;">
+  <dialog id="new-entry-dialog" title="Nytt inlägg" modal="true" backdrop="true" style="width: 60; height: 22;">
     <container style="padding: 1; gap: 1;">
       <text>Signatur:</text>
       <input id="entry-sig" placeholder="Din signatur" />
@@ -147,6 +147,7 @@
       <textarea id="entry-msg" rows="6" placeholder="Skriv ditt inlägg..." persist="false" />
       <text>Plats:</text>
       <input id="entry-place" placeholder="Var är du?" />
+      <checkbox id="entry-secret" title="Hemlis" />
       <container style="flex-direction: row; gap: 1;">
         <button onClick="$app.submitEntry()">Posta</button>
         <button onClick="$app.closeDialog('new-entry-dialog')">Avbryt</button>
@@ -392,7 +393,8 @@
         const beers = e.enheter && e.enheter > 0 ? '\uD83C\uDF7A'.repeat(e.enheter) + '\n\n' : '';
 
         // Message body first
-        let block = beers + msg;
+        const hemlis = e.secret ? '*Hemlis:*\n\n' : '';
+        let block = hemlis + beers + msg;
 
         // Footer: signature, date, metadata
         // visibleLen counts only rendered characters (no markdown syntax)
@@ -758,6 +760,8 @@
       const sig = $melker.getElementById('entry-sig')?.getValue() || '';
       const msg = $melker.getElementById('entry-msg')?.getValue() || '';
       const place = $melker.getElementById('entry-place')?.getValue() || '';
+      const secretEl = $melker.getElementById('entry-secret');
+      const secret = !!(secretEl && secretEl.props.checked);
 
       if (!sig || !msg) {
         $melker.alert('Signatur och meddelande krävs.');
@@ -769,12 +773,13 @@
 
       const result = await apiFetch('/db/entries', {
         method: 'POST',
-        body: JSON.stringify({ sig, msg, place }),
+        body: JSON.stringify({ sig, msg, place, secret }),
       });
 
       if (result) {
         closeDialog('new-entry-dialog');
         $melker.getElementById('entry-msg')?.setValue('');
+        if (secretEl) secretEl.props.checked = false;
         $melker.toast.show('Inlägg skickat!');
         entrySkip = 0;
         await loadEntries();
