@@ -92,12 +92,22 @@
   <dialog id="map-dialog" title="Karta" modal="true" backdrop="true" style="width: 80; height: 30;">
     <tile-map id="entry-map" lat="57.7" lon="12.0" zoom="13"
               provider="openstreetmap" width="100%" height="100%"
-              onOverlay="$app.drawMapMarker(event)" />
+              onOverlay="$app.drawMapMarker(event)"
+              onMove="$app.onMapMove(event)"
+              onZoom="$app.onMapZoom(event)" />
     <container style="flex-direction: row; padding: 0 1; gap: 1;">
       <text id="map-info" style="flex: 1;"></text>
+      <button onClick="$app.mapZoom(-1)">-</button>
+      <button onClick="$app.mapZoom(1)">+</button>
       <button onClick="$app.closeDialog('map-dialog')">Stäng</button>
     </container>
     <command key="Escape" label="Stäng" onExecute="$app.closeDialog('map-dialog')" />
+    <command key="+" label="Zooma in" onExecute="$app.mapZoom(1)" />
+    <command key="-" label="Zooma ut" onExecute="$app.mapZoom(-1)" />
+    <command key="ArrowUp" label="Panorera norr" onExecute="$app.mapPan(0, 1)" />
+    <command key="ArrowDown" label="Panorera söder" onExecute="$app.mapPan(0, -1)" />
+    <command key="ArrowLeft" label="Panorera väster" onExecute="$app.mapPan(-1, 0)" />
+    <command key="ArrowRight" label="Panorera öster" onExecute="$app.mapPan(1, 0)" />
   </dialog>
 
   <!-- Article detail dialog -->
@@ -532,6 +542,9 @@
 
     let mapEntryLat = 0;
     let mapEntryLon = 0;
+    let mapViewLat = 0;
+    let mapViewLon = 0;
+    let mapViewZoom = 14;
 
     export async function handleEntryLink(url: string) {
       if (url.startsWith('sidan://like/')) {
@@ -561,9 +574,12 @@
     function showEntryMap(entry: any) {
       mapEntryLat = entry.lat;
       mapEntryLon = entry.lon;
+      mapViewLat = entry.lat;
+      mapViewLon = entry.lon;
+      mapViewZoom = 14;
       const map = $melker.getElementById('entry-map');
       if (map) {
-        map.setView(entry.lat, entry.lon, 14);
+        map.setView(mapViewLat, mapViewLon, mapViewZoom);
       }
       const info = $melker.getElementById('map-info');
       if (info) {
@@ -574,6 +590,31 @@
         dialog.props.title = `Karta: ${entry.sig || 'Inlägg'}`;
         dialog.show();
       }
+    }
+
+    export function mapZoom(delta: number) {
+      mapViewZoom = Math.max(1, Math.min(19, mapViewZoom + delta));
+      $melker.getElementById('entry-map')?.setView(mapViewLat, mapViewLon, mapViewZoom);
+    }
+
+    export function mapPan(dx: number, dy: number) {
+      // Step = 1/4 of the visible span at the current zoom (tile = 360/2^z degrees)
+      const step = 360 / Math.pow(2, mapViewZoom + 2);
+      mapViewLon += dx * step;
+      mapViewLat += dy * step;
+      mapViewLat = Math.max(-85, Math.min(85, mapViewLat));
+      if (mapViewLon > 180) mapViewLon -= 360;
+      if (mapViewLon < -180) mapViewLon += 360;
+      $melker.getElementById('entry-map')?.setView(mapViewLat, mapViewLon, mapViewZoom);
+    }
+
+    export function onMapMove(event: any) {
+      if (event?.lat != null) mapViewLat = event.lat;
+      if (event?.lon != null) mapViewLon = event.lon;
+    }
+
+    export function onMapZoom(event: any) {
+      if (event?.zoom != null) mapViewZoom = event.zoom;
     }
 
     export function drawMapMarker(event: any) {
