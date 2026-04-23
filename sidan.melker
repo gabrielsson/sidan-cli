@@ -37,7 +37,7 @@
         <button id="new-entry-btn" onClick="$app.newEntry()" style="display: none;">Nytt inlägg</button>
         <button onClick="$app.loadEntries()">Uppdatera</button>
         <text id="entry-page-info" style="flex: 1; text-align: right;"></text>
-        <button onClick="$app.prevEntries()">Prev</button>
+        <button onClick="$app.prevEntries()">Föregående</button>
         <button onClick="$app.nextEntries()">Nästa</button>
       </container>
       <container id="entries-scroll" style="flex: 1; overflow: scroll;">
@@ -61,7 +61,7 @@
       <container class="toolbar">
         <button onClick="$app.loadEvents()">Uppdatera</button>
         <text id="event-page-info" style="flex: 1; text-align: right;"></text>
-        <button onClick="$app.prevEvents()">Prev</button>
+        <button onClick="$app.prevEvents()">Föregående</button>
         <button onClick="$app.nextEvents()">Nästa</button>
       </container>
       <data-table id="events-table" style="flex: 1;" selectable="single"
@@ -73,7 +73,7 @@
       <container class="toolbar">
         <button onClick="$app.loadArticles()">Uppdatera</button>
         <text id="article-page-info" style="flex: 1; text-align: right;"></text>
-        <button onClick="$app.prevArticles()">Prev</button>
+        <button onClick="$app.prevArticles()">Föregående</button>
         <button onClick="$app.nextArticles()">Nästa</button>
       </container>
       <data-table id="articles-table" style="flex: 1;" selectable="single"
@@ -649,7 +649,7 @@
           '',
           ev.start_date ? `**Datum:** ${ev.start_date}` : '',
           ev.plats ? `**Plats:** ${ev.plats}` : '',
-          ev.organisator ? `**Organisator:** ${ev.organisator}` : '',
+          ev.organisator ? `**Organisatör:** ${ev.organisator}` : '',
           ev.deltagare ? `**Deltagare:** ${ev.deltagare}` : '',
           ev.kanske ? `**Kanske:** ${ev.kanske}` : '',
         ].filter(Boolean).join('\n\n');
@@ -669,7 +669,7 @@
       const statusEl = $melker.getElementById('event-register-status');
 
       if (!token) {
-        if (statusEl) statusEl.setValue('Logga in forst (Ctrl+L)');
+        if (statusEl) statusEl.setValue('Logga in först (Ctrl+L)');
         return;
       }
 
@@ -677,12 +677,12 @@
       const current = ev.deltagare || '';
       const already = current.split(',').map((s: string) => s.trim()).filter(Boolean).some((s: string) => s === sig);
       if (already) {
-        if (statusEl) statusEl.setValue('Du ar redan anmald!');
+        if (statusEl) statusEl.setValue('Du är redan anmäld!');
         return;
       }
 
       const updated = current ? `${current}, ${sig}` : sig;
-      if (statusEl) statusEl.setValue('Anmaler...');
+      if (statusEl) statusEl.setValue('Anmäler...');
       $melker.render();
 
       const result = await apiFetch(`/db/arr/${ev.id}`, {
@@ -692,12 +692,12 @@
 
       if (result) {
         events[currentEventIndex] = result;
-        if (statusEl) statusEl.setValue('Anmald!');
+        if (statusEl) statusEl.setValue('Anmäld!');
         // Refresh the detail view
         viewEvent(currentEventIndex);
         await loadEvents();
       } else {
-        if (statusEl) statusEl.setValue('Fel vid anmalan');
+        if (statusEl) statusEl.setValue('Fel vid anmälan');
       }
     }
 
@@ -707,7 +707,7 @@
       const statusEl = $melker.getElementById('event-register-status');
 
       if (!token) {
-        if (statusEl) statusEl.setValue('Logga in forst (Ctrl+L)');
+        if (statusEl) statusEl.setValue('Logga in först (Ctrl+L)');
         return;
       }
 
@@ -715,7 +715,7 @@
       const current = ev.deltagare || '';
       const parts = current.split(',').map((s: string) => s.trim()).filter(Boolean);
       if (!parts.includes(sig)) {
-        if (statusEl) statusEl.setValue('Du ar inte anmald');
+        if (statusEl) statusEl.setValue('Du är inte anmäld');
         return;
       }
 
