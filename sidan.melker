@@ -6,7 +6,7 @@
     "name": "Sidan",
     "description": "Terminal client for sidan forum",
     "permissions": {
-      "net": ["api.chalmerslosers.com", "chalmerslosers.com"],
+      "net": ["*"],
       "read": ["~/.config/sidan"],
       "run": ["sidan-auth", "open", "xdg-open"],
       "env": ["*"],
@@ -112,7 +112,7 @@
 
   <!-- Article detail dialog -->
   <dialog id="article-dialog" title="Artikel" modal="true" backdrop="true" style="width: 72; height: 22;">
-    <container style="padding: 1; overflow: scroll; flex: 1;">
+    <container id="article-dialog-scroll" style="padding: 1; overflow: scroll; flex: 1;">
       <markdown id="article-content" enableGfm="true" />
     </container>
     <container style="flex-direction: row; padding: 0 1;">
@@ -369,17 +369,19 @@
 
     function htmlToMd(html: string): string {
       let md = html;
-      // Resolve relative src in <img> tags
-      md = md.replace(/<img\s+([^>]*?)src=["']([^"']*)["']([^>]*?)>/gi, (_m, pre, src, post) => {
+      // Resolve relative src in <img> tags; src may be quoted ("..."/'...') or unquoted
+      md = md.replace(/<img\s+([^>]*?)src\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))([^>]*)>/gi, (_m, pre, s1, s2, s3, post) => {
+        const src = s1 ?? s2 ?? s3 ?? '';
         return `<img ${pre}src="${resolveUrl(src)}"${post}>`;
       });
-      // Convert <a href="url"><img ...></a> — linked image: show image then link
-      md = md.replace(/<a\s+href=["']([^"']*)["'][^>]*>\s*(<img\s[^>]+>)\s*<\/a>/gi, (_m, href, img) => {
-        const resolved = resolveUrl(href);
-        return img + `\n[visa full storlek](${resolved})`;
+      // Convert <a href=...><img ...></a> — linked image: show image then link
+      md = md.replace(/<a\s+[^>]*?href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>\s*(<img\s[^>]+>)\s*<\/a>/gi, (_m, h1, h2, h3, img) => {
+        const href = h1 ?? h2 ?? h3 ?? '';
+        return img + `\n[visa full storlek](${resolveUrl(href)})`;
       });
-      // Convert remaining <a href="url">text</a> to [text](url)
-      md = md.replace(/<a\s+href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi, (_m, href, text) => {
+      // Convert remaining <a href=...>text</a> to [text](url); href may be quoted ("..."/'...') or unquoted
+      md = md.replace(/<a\s+[^>]*?href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>(.*?)<\/a>/gi, (_m, h1, h2, h3, text) => {
+        const href = h1 ?? h2 ?? h3 ?? '';
         return `[${text}](${resolveUrl(href)})`;
       });
       // <br> tags to newlines
@@ -685,7 +687,7 @@
           '',
           '---',
           '',
-          a.body || '',
+          htmlToMd(a.body || ''),
         ].join('\n');
         content.props.text = md;
       }
@@ -931,14 +933,23 @@
 
     // --- Pagination ---
 
+    function scrollContainer(id: string, direction: number) {
+      const el = $melker.getElementById(id);
+      if (el) {
+        el.props.scrollY = Math.max(0, (el.props.scrollY || 0) + direction * 20);
+        $melker.render();
+      }
+    }
+
     export function handlePage(direction: number) {
+      // If the article dialog is open, scroll its content instead of paging tabs
+      if ($melker.getElementById('article-dialog')?.props.open) {
+        scrollContainer('article-dialog-scroll', direction);
+        return;
+      }
       const activeIndex = $melker.getElementById('main-tabs')?.getActiveIndex?.() ?? 0;
       if (activeIndex === 0) {
-        const scroll = $melker.getElementById('entries-scroll');
-        if (scroll) {
-          scroll.props.scrollY = Math.max(0, (scroll.props.scrollY || 0) + direction * 20);
-          $melker.render();
-        }
+        scrollContainer('entries-scroll', direction);
       } else {
         const tableId = activeIndex === 1 ? 'members-table'
                       : activeIndex === 2 ? 'events-table'

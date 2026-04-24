@@ -181,6 +181,6 @@ Stored at `~/.config/sidan/config.json`. Fields used by the app:
 
 ## Network Policy
 
-Allowed hosts: `api.chalmerslosers.com`, `chalmerslosers.com`
+Allowed hosts: `*` (any host — required so markdown-rendered `<img>` tags in entries and Blaskan articles can fetch images from arbitrary external hosts like `i.ytimg.com`, imgur, etc.)
 Allowed commands: `sidan-auth`, `open`, `xdg-open`
 Config read: `~/.config/sidan`
