@@ -166,6 +166,18 @@
     <command key="Escape" label="Avbryt" onExecute="$app.closeDialog('new-entry-dialog')" />
   </dialog>
 
+  <!-- Confirm dialog (Ja / Avbryt) -->
+  <dialog id="app-confirm-dialog" title="Bekräfta" modal="true" backdrop="true" style="width: 60; height: 8;">
+    <container style="padding: 1; flex: 1;">
+      <text id="app-confirm-message"></text>
+    </container>
+    <container style="flex-direction: row; gap: 1; padding: 0 1 1 1;">
+      <button label="Ja" onClick="$app.confirmResolve(true)" />
+      <button label="Avbryt" onClick="$app.confirmResolve(false)" />
+    </container>
+    <command key="Escape" label="Avbryt" onExecute="$app.confirmResolve(false)" />
+  </dialog>
+
   <!-- Auth dialog -->
   <dialog id="auth-dialog" title="Autentisering" modal="true" backdrop="true" style="width: 60; height: 14;">
     <container style="padding: 1; gap: 1; flex: 1;">
@@ -200,6 +212,9 @@
     let members: any[] = [];
     let events: any[] = [];
     let currentEventIndex = -1;
+    let rowToEventIndex: number[] = [];
+    let allDisplayRows: any[] = [];
+    let allRowToEventIndex: number[] = [];
 
     let entrySkip = 0;
     const entryTake = 100;
@@ -505,34 +520,65 @@
       $melker.render();
     }
 
+    function renderEventsPage() {
+      const table = $melker.getElementById('events-table');
+      if (table) {
+        table.props.columns = [
+          { header: 'Namn', width: 'fill' },
+          { header: 'Datum', width: 17 },
+          { header: 'Plats', width: 18 },
+          { header: 'Org', width: 8 },
+          { header: 'Deltagare', width: 'fill' },
+        ];
+        const pageEnd = Math.min(eventSkip + eventTake, allDisplayRows.length);
+        const pageRows = allDisplayRows.slice(eventSkip, pageEnd);
+        rowToEventIndex = allRowToEventIndex.slice(eventSkip, pageEnd);
+        table.setValue(pageRows);
+      }
+      const pageInfo = $melker.getElementById('event-page-info');
+      if (pageInfo) {
+        const pageEnd = Math.min(eventSkip + eventTake, allDisplayRows.length);
+        pageInfo.setValue(`Visar ${allDisplayRows.length === 0 ? 0 : eventSkip + 1}-${pageEnd} av ${allDisplayRows.length}`);
+      }
+    }
+
     export async function loadEvents() {
       setStatus('Hämtar arrangemang...');
       $melker.render();
-      const data = await apiFetch(`/db/arr?skip=${eventSkip}&take=${eventTake}`);
+      // Fetch all events so we can sort globally across pages
+      const data = await apiFetch(`/db/arr?skip=0&take=10000`);
       if (data && Array.isArray(data)) {
-        events = data;
-        const table = $melker.getElementById('events-table');
-        if (table) {
-          table.props.columns = [
-            { header: 'Namn', width: 'fill' },
-            { header: 'Datum', width: 17 },
-            { header: 'Plats', width: 18 },
-            { header: 'Org', width: 8 },
-            { header: 'Deltagare', width: 'fill' },
-          ];
-          const rows = events.map((ev: any) => [
-            stripHtml(ev.namn || ''),
-            ev.start_date || '',
-            ev.plats || '',
-            ev.organisator || '',
-            ev.deltagare || '',
-          ]);
-          table.setValue(rows);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const future = data.filter((ev: any) => (ev.start_date || '').slice(0, 10) >= todayStr)
+          .sort((a: any, b: any) => (a.start_date || '').localeCompare(b.start_date || ''));
+        const past = data.filter((ev: any) => (ev.start_date || '').slice(0, 10) < todayStr)
+          .sort((a: any, b: any) => (b.start_date || '').localeCompare(a.start_date || ''));
+        events = [...future, ...past];
+
+        const toRow = (ev: any) => [
+          eventDisplayName(ev),
+          ev.start_date || '',
+          ev.plats || '',
+          ev.organisator || '',
+          ev.deltagare || '',
+        ];
+        allDisplayRows = [];
+        allRowToEventIndex = [];
+        future.forEach((ev: any, i: number) => {
+          allDisplayRows.push(toRow(ev));
+          allRowToEventIndex.push(i);
+        });
+        if (future.length > 0 && past.length > 0) {
+          allDisplayRows.push(['───── Gamla arrangemang ─────', '', '', '', '']);
+          allRowToEventIndex.push(-1);
         }
-        const pageInfo = $melker.getElementById('event-page-info');
-        if (pageInfo) {
-          pageInfo.setValue(`Visar ${eventSkip + 1}-${eventSkip + events.length}`);
-        }
+        past.forEach((ev: any, i: number) => {
+          allDisplayRows.push(toRow(ev));
+          allRowToEventIndex.push(future.length + i);
+        });
+
+        if (eventSkip >= allDisplayRows.length) eventSkip = 0;
+        renderEventsPage();
         setStatus(`${events.length} arrangemang laddade`);
       }
       $melker.render();
@@ -678,18 +724,24 @@
       }
     }
 
-    export function viewEvent(rowIndex: number) {
-      if (rowIndex < 0 || rowIndex >= events.length) return;
-      currentEventIndex = rowIndex;
-      const ev = events[rowIndex];
+    function isFularr(ev: any): boolean {
+      return ev.fularr === '1' || ev.fularr === 1;
+    }
+
+    function eventDisplayName(ev: any, fallback = ''): string {
+      const name = stripHtml(ev.namn || fallback);
+      return isFularr(ev) ? `${name} 💩` : name;
+    }
+
+    function renderEventDetail(ev: any, showDialog: boolean) {
       const statusEl = $melker.getElementById('event-register-status');
-      if (statusEl) statusEl.setValue('');
+      if (statusEl && showDialog) statusEl.setValue('');
 
       const detail = $melker.getElementById('event-detail');
       if (detail) {
         const lines = [
-          `## ${ev.namn || 'Namnlöst arrangemang'}`,
-          '',
+          `## ${stripHtml(ev.namn || 'Namnlöst arrangemang')}`,
+          isFularr(ev) ? `**Fularr:** Ja 💩` : '',
           ev.start_date ? `**Datum:** ${ev.start_date}` : '',
           ev.plats ? `**Plats:** ${ev.plats}` : '',
           ev.organisator ? `**Organisatör:** ${ev.organisator}` : '',
@@ -702,7 +754,41 @@
       const dialog = $melker.getElementById('event-dialog');
       if (dialog) {
         dialog.props.title = stripHtml(ev.namn || 'Arrangemang');
-        dialog.show();
+        if (showDialog) dialog.show();
+      }
+    }
+
+    export function viewEvent(rowIndex: number) {
+      if (rowIndex < 0 || rowIndex >= rowToEventIndex.length) return;
+      const evIndex = rowToEventIndex[rowIndex];
+      if (evIndex < 0 || evIndex >= events.length) return;
+      currentEventIndex = evIndex;
+      renderEventDetail(events[evIndex], true);
+    }
+
+    function isPastEvent(ev: any): boolean {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      return (ev.start_date || '').slice(0, 10) < todayStr;
+    }
+
+    let confirmResolver: ((ok: boolean) => void) | null = null;
+
+    function appConfirm(message: string): Promise<boolean> {
+      return new Promise((resolve) => {
+        if (confirmResolver) confirmResolver(false);
+        confirmResolver = resolve;
+        const msgEl = $melker.getElementById('app-confirm-message');
+        if (msgEl) msgEl.setValue(message);
+        $melker.getElementById('app-confirm-dialog')?.show();
+      });
+    }
+
+    export function confirmResolve(ok: boolean) {
+      $melker.getElementById('app-confirm-dialog')?.hide();
+      if (confirmResolver) {
+        const r = confirmResolver;
+        confirmResolver = null;
+        r(ok);
       }
     }
 
@@ -724,6 +810,14 @@
         return;
       }
 
+      if (isPastEvent(ev)) {
+        const ok = await appConfirm('Vill du verkligen ändra deltagande på ett gammalt arr?');
+        if (!ok) {
+          if (statusEl) statusEl.setValue('Avbrutet');
+          return;
+        }
+      }
+
       const updated = current ? `${current}, ${sig}` : sig;
       if (statusEl) statusEl.setValue('Anmäler...');
       $melker.render();
@@ -737,7 +831,7 @@
         events[currentEventIndex] = result;
         if (statusEl) statusEl.setValue('Anmäld!');
         // Refresh the detail view
-        viewEvent(currentEventIndex);
+        renderEventDetail(result, false);
         await loadEvents();
       } else {
         if (statusEl) statusEl.setValue('Fel vid anmälan');
@@ -762,6 +856,14 @@
         return;
       }
 
+      if (isPastEvent(ev)) {
+        const ok = await appConfirm('Vill du verkligen ändra deltagande på ett gammalt arr?');
+        if (!ok) {
+          if (statusEl) statusEl.setValue('Avbrutet');
+          return;
+        }
+      }
+
       const updated = parts.filter((s: string) => s !== sig).join(', ');
       if (statusEl) statusEl.setValue('Bangar...');
       $melker.render();
@@ -774,7 +876,7 @@
       if (result) {
         events[currentEventIndex] = result;
         if (statusEl) statusEl.setValue('Bangat!');
-        viewEvent(currentEventIndex);
+        renderEventDetail(result, false);
         await loadEvents();
       } else {
         if (statusEl) statusEl.setValue('Fel vid bangning');
@@ -861,13 +963,17 @@
     }
 
     export function nextEvents() {
-      eventSkip += eventTake;
-      loadEvents();
+      if (eventSkip + eventTake < allDisplayRows.length) {
+        eventSkip += eventTake;
+        renderEventsPage();
+        $melker.render();
+      }
     }
 
     export function prevEvents() {
       eventSkip = Math.max(0, eventSkip - eventTake);
-      loadEvents();
+      renderEventsPage();
+      $melker.render();
     }
 
     export function nextArticles() {
