@@ -40,6 +40,7 @@
         <button onClick="$app.prevEntries()">Föregående</button>
         <button onClick="$app.nextEntries()">Nästa</button>
       </container>
+      <separator />
       <container id="entries-scroll" style="flex: 1; overflow: scroll;">
         <markdown id="entries-md" enableGfm="true"
           onLink="$app.handleEntryLink(event.url)" />
